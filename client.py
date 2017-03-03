@@ -91,7 +91,8 @@ def rewrite(args):
     for d in serialnos:
         subprocess.check_call(['adb', '-s', d, 'shell', 'pm', 'grant', pkg, 'android.permission.WRITE_EXTERNAL_STORAGE'])
         subprocess.check_call(['adb', '-s', d, 'shell', 'pm', 'grant', pkg, 'android.permission.READ_EXTERNAL_STORAGE'])
-
+    print('write log permission complete')
+    print('ALL Success ! Test by your self now')
 
 def analyze(args):
     log_zip = args.pkg_name + '.log.zip'
@@ -165,6 +166,8 @@ def analyze(args):
     os.remove(log_zip)
     for d in serialnos:
         os.remove(d + '.log')
+
+    print('ALL Sucess ! Report file at: ' + args.report_path)
 
 
 def main():
