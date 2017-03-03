@@ -1,4 +1,5 @@
 import requests
+import argparse
 import sys
 import subprocess
 import shutil
@@ -15,17 +16,11 @@ ANXIETY = 1
 AUTH_BASE = 'https://api.appetizer.io/'
 DEVICE_LOG_BASE = '/sdcard/io.appetizer/'
 
-def usage():
-    print('insight-client apk-path save-path device-list username password')
-    return 1
 
-def main(args):
-    if len(args) != 5:
-        return usage()
-    apk_path, rewrite_path, serialnos, username, password = tuple(args)
-    original_name = apk_path.split('/')[-1]
-    serialnos = serialnos.split(',')
-    pkg = APK(apk_path).get_package()
+def rewrite(args):
+    original_name = args.apk.split('/')[-1]
+    serialnos = args.serialnos.split(',')
+    pkg = APK(args.apk).get_package()
     DEVICE_LOG = DEVICE_LOG_BASE + pkg + '.log'
     log_zip = pkg + '.log.zip' 
     token = None
@@ -35,7 +30,7 @@ def main(args):
         print('adb not available')
         return 1
     print('0. authenticate with the server')
-    r = requests.post(AUTH_BASE + 'api/v1/insight/qiniu_upload_auth', data={'id': username, 'password': password}, verify=False)
+    r = requests.post(AUTH_BASE + 'api/v1/insight/qiniu_rewrite_upload_auth', data={'id': args.username, 'password': args.password}, verify=False)
     r_json = r.json()
     print(r_json)
     if r.status_code != 200:
@@ -45,15 +40,14 @@ def main(args):
     key = r_json['key']
 
     print('1. upload APK file')
-    print('apk_path: ' + apk_path)
+    print('apk_path: ' + args.apk)
     print('pkg: ' + pkg)
     print('upload......')
-    ret, info = put_file(token, key, apk_path)
+    ret, info = put_file(token, key, args.apk)
     print(ret)
     if (ret is None or 'code' not in ret or ret['code'] != 200):
         print('upload error')
         return 1
-
 
     print('2. wait for the APK to be processed')
     r_json = None
@@ -86,14 +80,14 @@ def main(args):
         print('download fail')
         return 1
     print('download complete')
-    with open(rewrite_path, 'wb') as f:
+    with open(args.rewrited_apk, 'wb') as f:
         for chunk in r.iter_content(chunk_size=1024000):
             f.write(chunk)
 
     print('4. install rewritten APK')
     for d in serialnos:
         subprocess.check_call(['adb', '-s', d, 'uninstall', pkg])
-        subprocess.check_call(['adb', '-s', d, 'install', rewritten_path])  # Note: Xiaomi will pop up a dialog
+        subprocess.check_call(['adb', '-s', d, 'install', args.rewritten_path])  # Note: Xiaomi will pop up a dialog
 
     print('5. prepare permission')
     for d in serialnos:
@@ -101,52 +95,101 @@ def main(args):
         subprocess.check_call(['adb', '-s', d, 'shell', 'pm', 'grant', pkg, 'android.permission.READ_EXTERNAL_STORAGE'])
 
 
-    print('6. run tests to get log, input anything to indicate completion')
-    if (sys.version_info > (3, 0)):
-        input()
-
-    print('7. harvest logs from devices and zip')
+def analyze(args):
+    print('0. harvest logs from devices and zip')
     with zipfile.ZipFile(log_zip, 'w') as myzip:
         for d in serialnos:
             subprocess.check_call(['adb', '-s', d, 'pull', DEVICE_LOG, d + '.log'])
             myzip.write(d + '.log')
 
-# To be refactor
-'''
-    print('8. upload log for analysis')
-    with open(log_zip, 'rb') as logs:
-        r = requests.post(API_BASE + 'insight/analyze_return_analyzeID', files={'logs': logs}, data={'userID': token, 'pkg': pkg})
-        if r.status_code != 200:
-            print('ERROR: server returns failure: ' + r.status_code)
-            return 1
-        print(r.text)
-    analyzeID = r.json()['analyzeID']
- 
-    print('9. download report')
-    while True:
-        r = requests.get(API_BASE + 'insight/query_analyze_by_analyzeID', params={'analyzeID': analyzeID})
-        print(r.text)
-        r_json = r.json()
-        if r_json['result'] != 'wait':
-            break
-        print('in processing')
-        time.sleep(ANXIETY)
-    print(r_json['msg'])
-    print(r_json['doc'])
-    if r_json['msg'] != 'Success':
+    print('1. authenticate with the server')
+    r = requests.post(AUTH_BASE + 'api/v1/insight/qiniu_analyze_upload_auth', data={'id': args.username, 'password': args.password, 'pkg_name': args.pkg_name}, verify=False)
+    r_json = r.json()
+    print(r_json)
+    if r.status_code != 200:
+        print(r_json['msg'])
         return 1
-    download_path = r_json['doc']['outPath']
-    print(download_path)
-    r = requests.get(API_BASE + download_path, stream=True)
-    with open(report_path, 'wb') as report_path:
-        shutil.copyfileobj(r.raw, report_path)
-    
-    print('10. cleanup')
-    os.remove(rewritten_path)
+    token = r_json['token']
+    key = r_json['key']
+
+
+    print('2. upload log zip file')
+    print('zip file: ' + log_zip)
+    print('pkg: ' + args.pkg_name)
+    print('upload......')
+    ret, info = put_file(token, key, log_zip)
+    print(ret)
+    if (ret is None or 'code' not in ret or ret['code'] != 200):
+        print('upload error')
+        return 1
+
+
+    print('3. wait for analyze to be processed')
+    r_json = None
+    while True:
+        r = requests.get(AUTH_BASE + 'api/v1/insight/client_query_analyze_state', params={'key': key})
+        r_json = r.json()
+        if r_json['code'] != 200:
+            print(r_json)
+            return 1
+        if r_json['state'] == 'return_upload_auth' or r_json['state'] == 'upload_finish' or r_json['state'] == 'server_download':
+            print('waiting...... server download log')
+        elif r_json['state'] == 'analyzing':
+            print('waiting...... server analyzing report')
+        elif r_json['state'] == 'analyze_success':
+            print('waiting...... server uploading report')
+        elif r_json['state'] == 'server_upload_success':
+            print('Success !')
+            break
+        else:
+            print(r_json)
+            print('analyze fail')
+            return 1
+        time.sleep(ANXIETY)
+    download_url = r_json['download_url']
+    print(download_url)
+
+
+    print('4. download insight report')
+    r = requests.get(download_url)
+    if r.status_code != 200:
+        print('download fail')
+        return 1
+    print('download complete')
+    with open(args.report_path, 'wb') as f:
+        for chunk in r.iter_content(chunk_size=1024000):
+            f.write(chunk)
+
+    print('5. cleanup')
     os.remove(log_zip)
     for d in serialnos:
         os.remove(d + '.log')
-'''
+
+
+def main():
+    parser = argparse.ArgumentParser()
+
+    subparsers = parser.add_subparsers(help='sub-command help')
+    
+    rewrite_parser = subparsers.add_parser('rewrite', help='Inject appetizer into apk')
+    rewrite_parser.add_argument('username', action='store', help='Appetizer.io account username, register from https://appetizer.io')
+    rewrite_parser.add_argument('password', action='store', help='Appetizer.io account password')
+    rewrite_parser.add_argument('apk', action='store', help='the path of apk to be rewrited')
+    rewrite_parser.add_argument('rewrited_apk', action='store', help='the path and file name for rewrited apk save to')
+    rewrite_parser.add_argument('serialnos', action='store', help='android devices\' serinal number, multi devices split with comma')
+    rewrite_parser.set_defaults(func=rewrite)
+
+    analyze_parser = subparsers.add_parser('analyze', help='Analyze log from devices')
+    rewrite_parser.add_argument('username', action='store', help='Appetizer.io account username, register from https://appetizer.io')
+    rewrite_parser.add_argument('password', action='store', help='Appetizer.io account password')
+    rewrite_parser.add_argument('pkg_name', action='store', help='the android application package name')
+    rewrite_parser.add_argument('report_path', action='store', help='the path for report save to')
+
+    analyze_parser.set_defaults(func=analyze)
+
+    args = parser.parse_args()
+    args.func(args)
+
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    main()
