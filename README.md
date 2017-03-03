@@ -29,6 +29,7 @@ python3 client.py rewrite example@mail.com password my.apk my-rewrited.apk phone
 ```
 
 注意
+* `serialnos` 用于自动安装和授权，不需要的话可以随意填写
 * `serialnos` 可以通过 `adb devices` 查询获取
 * 非图形化客户端的用户名和密码不支持第三方账号，请在 [Appetizer.io](https://api.appetizer.io/user/register) 注册
 

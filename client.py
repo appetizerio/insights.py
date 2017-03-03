@@ -85,7 +85,7 @@ def rewrite(args):
     print('4. install rewritten APK')
     for d in serialnos:
         subprocess.check_call(['adb', '-s', d, 'uninstall', pkg])
-        subprocess.check_call(['adb', '-s', d, 'install', args.rewritten_path])  # Note: Xiaomi will pop up a dialog
+        subprocess.check_call(['adb', '-s', d, 'install', args.rewrited_apk])  # Note: Xiaomi will pop up a dialog
 
     print('5. prepare permission')
     for d in serialnos:
