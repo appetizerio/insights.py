@@ -21,8 +21,6 @@ def rewrite(args):
     original_name = args.apk.split('/')[-1]
     serialnos = args.serialnos.split(',')
     pkg = APK(args.apk).get_package()
-    DEVICE_LOG = DEVICE_LOG_BASE + pkg + '.log'
-    log_zip = pkg + '.log.zip' 
     token = None
     try:
         subprocess.check_call(['adb', 'version'])
@@ -96,6 +94,10 @@ def rewrite(args):
 
 
 def analyze(args):
+    log_zip = args.pkg_name + '.log.zip'
+    serialnos = args.serialnos.split(',')
+    DEVICE_LOG = DEVICE_LOG_BASE + args.pkg_name + '.log'
+    token = None
     print('0. harvest logs from devices and zip')
     with zipfile.ZipFile(log_zip, 'w') as myzip:
         for d in serialnos:
@@ -114,11 +116,10 @@ def analyze(args):
 
 
     print('2. upload log zip file')
-    print('zip file: ' + log_zip)
     print('pkg: ' + args.pkg_name)
+    print('zip file: ' + log_zip)
     print('upload......')
     ret, info = put_file(token, key, log_zip)
-    print(ret)
     if (ret is None or 'code' not in ret or ret['code'] != 200):
         print('upload error')
         return 1
@@ -172,7 +173,7 @@ def main():
     subparsers = parser.add_subparsers(help='sub-command help')
     
     rewrite_parser = subparsers.add_parser('rewrite', help='Inject appetizer into apk')
-    rewrite_parser.add_argument('username', action='store', help='Appetizer.io account username, register from https://appetizer.io')
+    rewrite_parser.add_argument('username', action='store', help='Appetizer.io account username, register from https://appetizer.io/')
     rewrite_parser.add_argument('password', action='store', help='Appetizer.io account password')
     rewrite_parser.add_argument('apk', action='store', help='the path of apk to be rewrited')
     rewrite_parser.add_argument('rewrited_apk', action='store', help='the path and file name for rewrited apk save to')
@@ -180,11 +181,11 @@ def main():
     rewrite_parser.set_defaults(func=rewrite)
 
     analyze_parser = subparsers.add_parser('analyze', help='Analyze log from devices')
-    rewrite_parser.add_argument('username', action='store', help='Appetizer.io account username, register from https://appetizer.io')
-    rewrite_parser.add_argument('password', action='store', help='Appetizer.io account password')
-    rewrite_parser.add_argument('pkg_name', action='store', help='the android application package name')
-    rewrite_parser.add_argument('report_path', action='store', help='the path for report save to')
-
+    analyze_parser.add_argument('username', action='store', help='Appetizer.io account username, register from https://appetizer.io/')
+    analyze_parser.add_argument('password', action='store', help='Appetizer.io account password')
+    analyze_parser.add_argument('pkg_name', action='store', help='the android application package name')
+    analyze_parser.add_argument('report_path', action='store', help='the path for report.json save to')
+    analyze_parser.add_argument('serialnos', action='store', help='android devices\' serinal number, multi devices split with comma')
     analyze_parser.set_defaults(func=analyze)
 
     args = parser.parse_args()
