@@ -1,8 +1,12 @@
 # insight-client
 Appetizer Insight 的 Python 客户端
 
-正在开发：
-* 网络上传 log（无需 USB 线）
+使用流程
+1. 将待测试的 apk 上传到服务端进行注入重写
+2. 下载注入重写后的 apk
+3. 进行任意的测试流程
+4. 将 log 上传至服务端进行分析
+5. 下载分析报表
 
 ## 要求
 * Python 3.3 +
@@ -46,3 +50,9 @@ python3 client.py analyze example@mail.com password com.my.packagename report.js
 注意
 * `serialnos` 可以通过 `adb devices` 查询获取
 * 非图形化客户端的用户名和密码不支持第三方账号，请在 [Appetizer.io](https://api.appetizer.io/user/register) 注册
+
+### 获取 apk 包名
+``` Shell
+python3 client.py pkgname apk
+```
+

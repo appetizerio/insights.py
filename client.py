@@ -170,6 +170,11 @@ def analyze(args):
     print('ALL Sucess ! Report file at: ' + args.report_path)
 
 
+def pkgname(args):
+    print(APK(args.apk).get_package())
+
+
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -190,6 +195,10 @@ def main():
     analyze_parser.add_argument('report_path', action='store', help='the path for report.json save to')
     analyze_parser.add_argument('serialnos', action='store', help='android devices\' serinal number, multi devices split with comma')
     analyze_parser.set_defaults(func=analyze)
+
+    pkgname_parser = subparsers.add_parser('pkgname', help='Get package name from apk file')
+    pkgname_parser.add_argument('apk', action='store', help='the apk path')
+    pkgname_parser.set_defaults(func=pkgname)
 
     args = parser.parse_args()
     args.func(args)
