@@ -31,6 +31,12 @@ def _load_token():
     except:
         print('not find access_token file, please login')
         return None
+    authorization = 'Bearer ' + access_token
+    r = requests.get(AUTH_BASE + 'api/v1/oauth/check_token', headers={'Authorization': authorization}, verify=False)
+    if r.status_code != 200:
+        print(r.json())
+        print('access_token fail')
+        return None
     print('Already login')
     print('access_token: ' + access_token)
     return access_token
