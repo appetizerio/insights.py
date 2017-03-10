@@ -36,36 +36,43 @@ python3 -m pip install -r requirements.txt
 python3 client.py -h
 ```
 
-### 注入重写 apk
+### login: 登录账号
 ``` Shell
-python3 client.py rewrite username password apk rewrited_apk serialnos
+python3 client.py login username password
+```
+执行 `processe` 和 `analyze` 操作均需要登录认证，执行登录后会在当年目录保存 `.access_token` 文件。
+
+账号可在 [Appetizer.io](https://api.appetizer.io/user/register) 注册。
+
+### process: 注入重写 apk
+``` Shell
+python3 client.py process apk processed_apk serialnos
 ```
 
 例如
 ``` Shell
-python3 client.py rewrite example@mail.com password my.apk my-rewrited.apk phone1,phone2,phone3 
+python3 client.py process my.apk my_processed.apk phone1,phone2,phone3 
 ```
 
 注意
 * `serialnos` 用于自动安装和授权，不需要的话可以随意填写
 * `serialnos` 可以通过 `adb devices` 查询获取
-* 非图形化客户端的用户名和密码不支持第三方账号，请在 [Appetizer.io](https://api.appetizer.io/user/register) 注册
 
-### 上传日志获取分析报表
+### analyze: 上传日志获取分析报表
 ``` Shell
 python3 client.py analyze username password pkg_name report_path serialnos
 ```
 
 例如
 ``` Shell
-python3 client.py analyze example@mail.com password com.my.packagename report.json phone1,phone2,phone3 
+python3 client.py analyze com.my.packagename report.json phone1,phone2,phone3 
 ```
 
 注意
 * `serialnos` 可以通过 `adb devices` 查询获取
-* 非图形化客户端的用户名和密码不支持第三方账号，请在 [Appetizer.io](https://api.appetizer.io/user/register) 注册
+* `pkgname` 可以获取应用包名
 
-### 获取 apk 包名
+### pkgname: 获取 apk 包名
 ``` Shell
 python3 client.py pkgname apk
 ```

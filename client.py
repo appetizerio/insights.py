@@ -14,10 +14,52 @@ import qiniu.config
 
 ANXIETY = 1
 AUTH_BASE = 'https://api.appetizer.io/'
+#AUTH_BASE = 'https://localhost/'
+TOKEN_PATH = '.access_token'
+
 DEVICE_LOG_BASE = '/sdcard/io.appetizer/'
 
 
-def rewrite(args):
+def _load_token():
+    access_token = ''
+    try:
+        with open(TOKEN_PATH, 'r') as tokenfile:
+            access_token = tokenfile.readline()
+            if access_token == '':
+                print('empty access_token file, please login')
+                return None
+    except:
+        print('not find access_token file, please login')
+        return None
+    print('Already login')
+    print('access_token: ' + access_token)
+    return access_token
+
+
+def login(args):
+    r = requests.post(AUTH_BASE + 'api/v1/oauth/access_token',
+        data={
+            'grant_type': 'password',
+            'username': args.username,
+            'password': args.password
+        }, headers={
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': 'Basic YXBwZXRpemVyX2NsaWVudDppbnRlcm5hbA=='
+        }, verify=False)
+    if r.status_code != 200:
+        print('User login fail, not exist or password error')
+        return 1
+    access_token = r.json()['access_token']
+    with open(TOKEN_PATH, 'w') as tokenfile:
+        tokenfile.write(access_token)
+        print('Login success !')
+        print('access_token: ' + access_token)
+
+def process(args):
+    access_token = _load_token()
+    if access_token is None:
+        return 1
+    authorization = 'Bearer ' + access_token
     original_name = args.apk.split('/')[-1]
     serialnos = args.serialnos.split(',')
     pkg = APK(args.apk).get_package()
@@ -27,8 +69,8 @@ def rewrite(args):
     except:
         print('adb not available')
         return 1
-    print('0. authenticate with the server')
-    r = requests.post(AUTH_BASE + 'api/v1/insight/qiniu_rewrite_upload_auth', data={'id': args.username, 'password': args.password}, verify=False)
+    print('0. upload apk authenticate with the server')
+    r = requests.post(AUTH_BASE + 'api/v1/insight/upload', headers={'Authorization': authorization}, verify=False)
     r_json = r.json()
     print(r_json)
     if r.status_code != 200:
@@ -50,7 +92,7 @@ def rewrite(args):
     print('2. wait for the APK to be processed')
     r_json = None
     while True:
-        r = requests.get(AUTH_BASE + 'api/v1/insight/client_query_rewrite_state', params={'key': key})
+        r = requests.get(AUTH_BASE + 'api/v1/insight/processed_app', headers={'Authorization': authorization}, params={'key': key})
         r_json = r.json()
         if r_json['code'] != 200:
             print(r_json)
@@ -78,14 +120,14 @@ def rewrite(args):
         print('download failed')
         return 1
     print('download completed')
-    with open(args.rewrited_apk, 'wb') as f:
+    with open(args.processed_apk, 'wb') as f:
         for chunk in r.iter_content(chunk_size=1024000):
             f.write(chunk)
 
     print('4. install rewritten APK')
     for d in serialnos:
         subprocess.check_call(['adb', '-s', d, 'uninstall', pkg])
-        subprocess.check_call(['adb', '-s', d, 'install', args.rewrited_apk])  # Note: Xiaomi will pop up a dialog
+        subprocess.check_call(['adb', '-s', d, 'install', args.processed_apk])  # Note: Xiaomi will pop up a dialog
     print('rewritten APK installed')
 
     print('5. grant permissions for logging')
@@ -97,6 +139,10 @@ def rewrite(args):
 
 
 def analyze(args):
+    access_token = _load_token()
+    if access_token is None:
+        return 1
+    authorization = 'Bearer ' + access_token
     log_zip = args.pkg_name + '.log.zip'
     serialnos = args.serialnos.split(',')
     DEVICE_LOG = DEVICE_LOG_BASE + args.pkg_name + '.log'
@@ -108,7 +154,7 @@ def analyze(args):
             myzip.write(d + '.log')
 
     print('1. authenticate with the server')
-    r = requests.post(AUTH_BASE + 'api/v1/insight/qiniu_analyze_upload_auth', data={'id': args.username, 'password': args.password, 'pkg_name': args.pkg_name}, verify=False)
+    r = requests.post(AUTH_BASE + 'api/v1/insight/analyze', headers={'Authorization': authorization}, data={'pkg_name': args.pkg_name}, verify=False)
     r_json = r.json()
     print(r_json)
     if r.status_code != 200:
@@ -131,7 +177,7 @@ def analyze(args):
     print('3. server analyzing')
     r_json = None
     while True:
-        r = requests.get(AUTH_BASE + 'api/v1/insight/client_query_analyze_state', params={'key': key})
+        r = requests.get(AUTH_BASE + 'api/v1/insight/report', headers={'Authorization': authorization}, params={'key': key})
         r_json = r.json()
         if r_json['code'] != 200:
             print(r_json)
@@ -182,20 +228,21 @@ def main():
 
     subparsers = parser.add_subparsers(help='sub-command help')
     
-    rewrite_parser = subparsers.add_parser('rewrite', help='Inject appetizer into apk')
-    rewrite_parser.add_argument('username', action='store', help='AppetizerIO account username, register at https://www.appetizer.io/')
-    rewrite_parser.add_argument('password', action='store', help='AppetizerIO account password')
-    rewrite_parser.add_argument('apk', action='store', help='the path to the APK')
-    rewrite_parser.add_argument('rewrited_apk', action='store', help='the complete path to save the rewritten APK')
-    rewrite_parser.add_argument('serialnos', action='store', help='a list of Android devices to install the rewritten APK, devices identified by their serinal numbers, comma separated')
-    rewrite_parser.set_defaults(func=rewrite)
+    login_parser = subparsers.add_parser('login', help='Login by AppetizerIO account, get a token')
+    login_parser.add_argument('username', action='store', help='AppetizerIO account username, register at https://www.appetizer.io/')
+    login_parser.add_argument('password', action='store', help='AppetizerIO account password')
+    login_parser.set_defaults(func=login)
+
+    process_parser = subparsers.add_parser('process', help='Inject appetizer into apk')
+    process_parser.add_argument('apk', action='store', help='the path to the APK')
+    process_parser.add_argument('processed_apk', action='store', help='the complete path to save the processed APK')
+    process_parser.add_argument('serialnos', action='store', help='a list of Android devices to install the rewritten APK, devices identified by their serinal numbers, comma separated')
+    process_parser.set_defaults(func=process)
 
     analyze_parser = subparsers.add_parser('analyze', help='Analyze device logs and generate diagnosis report')
-    analyze_parser.add_argument('username', action='store', help='AppetizerIO account username, register at https://www.appetizer.io/')
-    analyze_parser.add_argument('password', action='store', help='AppetizerIO account password')
     analyze_parser.add_argument('pkg_name', action='store', help='the package name of the Android app')
     analyze_parser.add_argument('report_path', action='store', help='the path to save the report')
-    rewrite_parser.add_argument('serialnos', action='store', help='a list of Android devices to install the rewritten APK, devices identified by their serinal numbers, comma separated')
+    analyze_parser.add_argument('serialnos', action='store', help='a list of Android devices to install the rewritten APK, devices identified by their serinal numbers, comma separated')
     analyze_parser.set_defaults(func=analyze)
 
     pkgname_parser = subparsers.add_parser('pkgname', help='Get the package name of an APK file')
