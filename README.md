@@ -60,7 +60,7 @@ python3 client.py process my.apk my_processed.apk phone1,phone2,phone3
 
 ### analyze: 上传日志获取分析报表
 ``` Shell
-python3 client.py analyze username password pkg_name report_path serialnos
+python3 client.py analyze pkg_name report_path serialnos
 ```
 
 例如
