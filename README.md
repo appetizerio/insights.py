@@ -34,26 +34,26 @@ python3 -m pip install -r requirements.txt
 ```
 ### 帮助
 ``` Shell
-python3 client.py -h
+python3 insights.py -h
 ```
 确认不会有错误即依赖安装正确
 
 ### login: 登录账号
 ``` Shell
-python3 client.py login username password
+python3 insights.py login username password
 ```
 所有客户端操作均需要登录认证，执行登录后登录用token保存在当前 `.access_token` 文件。token默认60天有效，使用任意操作会自动续期。60天后token过期需要重新登录。
 
 账号可在 [Appetizer.io](https://api.appetizer.io/user/register) 注册。
 
-### 插装 apk
+### 插桩 apk
 ``` Shell
-python3 client.py process apk processed_apk
+python3 insights.py process apk processed_apk
 ```
 
 例如
 ``` Shell
-python3 client.py process my.apk my_processed.apk 
+python3 insights.py process my.apk my_processed.apk 
 ```
 
 插装需要上传、处理、下载，需要一定时间，依据网络情况与APK大小不同大致在1分钟-3分钟内，期间会有输出表示进展情况。
@@ -61,9 +61,9 @@ python3 client.py process my.apk my_processed.apk
 ### 安装插装后的APK并授权
 
 ``` Shell
-python3 client.py install my_processed.apk serialno1,serialno2
+python3 insights.py install my_processed.apk serialno1,serialno2
 ```
-其中 `serialno1` 等是设备的串号，通过 `adb devices` 获得，需要安装到多个设备可以用逗号隔开不要有空格，安装后会自动授权log （小米无法自动化授权，会弹框需手工确认）
+其中 `serialno1` 等是设备的串号，通过 `adb devices` 获得，需要安装到多个设备可以用逗号隔开不要有空格，安装后会自动授权log （小米无法自动化授权，建议在安装完成后授权读写SDCARD）
 
 
 ### 测试
@@ -71,9 +71,9 @@ Appetizer 质量监控客户端对测试没有特别限制，可以是简单的�
 
 ### 上传log获取分析报告
 ``` Shell
-python3 client.py analyze my_processed.apk report_path serialno1,serialno2 --clear
+python3 insights.py analyze my_processed.apk report_path serialno1,serialno2 --clear
 ```
-* serialno1等串号同上
+* serialno1等是串号同上
 * report_path是分析报告存放的路径，需要文件名
 * `--clear`是可选参数，用于从设备下载log后将设备上log清空
 
