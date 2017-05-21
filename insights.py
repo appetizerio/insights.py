@@ -174,7 +174,11 @@ def install(args):
 
     print('2. grant permissions for logging')
     for d in serialnos:
+        grantWrite = ['adb', '-s', d, 'shell', 'pm', 'grant', pkg, 'android.permission.WRITE_EXTERNAL_STORAGE']
+        print(" ".join(grantWrite))
         subprocess.check_call(['adb', '-s', d, 'shell', 'pm', 'grant', pkg, 'android.permission.WRITE_EXTERNAL_STORAGE'])
+        grantRead = ['adb', '-s', d, 'shell', 'pm', 'grant', pkg, 'android.permission.READ_EXTERNAL_STORAGE']
+        print(" ".join(grantRead))
         subprocess.check_call(['adb', '-s', d, 'shell', 'pm', 'grant', pkg, 'android.permission.READ_EXTERNAL_STORAGE'])
     print('permission granted')
 
