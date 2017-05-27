@@ -1,4 +1,4 @@
-# insight-client
+# insights.py
 Appetizer 质量监控的 Python 客户端
 
 使用流程
@@ -79,7 +79,7 @@ python3 insights.py analyze my_processed.apk report_path serialno1,serialno2 --c
 
 ### 其他功能
 ``` Shell
-python3 client.py clearlog my_processed.apk serialno1,serialno2 --clear
+python3 insights.py clearlog my_processed.apk serialno1,serialno2 --clear
 ```
 将设备上有指定插装后的APK的log清除
 
