@@ -35,7 +35,7 @@ if sys.version_info < (3, 0):
     sys.exit(1)
 
 ANXIETY = 5
-API_BASE = 'https://api.appetizer.io/'
+API_BASE = 'https://api.appetizer.io/v2'
 TOKEN_PATH = os.path.join(os.path.dirname(__file__), '.access_token')
 DEVICE_LOG_BASE = '/sdcard/io.appetizer/'
 
@@ -52,7 +52,7 @@ def _load_token():
         print('no stored access token, please login')
         return None
     authorization = 'Bearer ' + access_token
-    r = requests.get(API_BASE + 'api/v1/oauth/check_token', headers={'Authorization': authorization}, verify=False)
+    r = requests.get(API_BASE + '/oauth/check_token', headers={'Authorization': authorization}, verify=False)
     if r.status_code != 200:
         print(r.json())
         print('stored access token is no longer valid, please login again')
@@ -62,7 +62,7 @@ def _load_token():
 
 
 def login(args):
-    r = requests.post(API_BASE + 'api/v1/oauth/access_token',
+    r = requests.post(API_BASE + '/oauth/access_token',
         data={
             'grant_type': 'password',
             'username': args.username,
@@ -107,7 +107,7 @@ def process(args):
         print('adb not available')
         return 1
     print('0. request for Appetizer Insights quality monitoring module')
-    r = requests.post(API_BASE + 'api/v1/insight/upload', headers={'Authorization': authorization}, verify=False)
+    r = requests.post(API_BASE + '/insight/process/qiniu', headers={'Authorization': authorization}, verify=False)
     r_json = r.json()
     print(r_json)
     if r.status_code != 200:
@@ -122,23 +122,23 @@ def process(args):
     print('upload......')
     ret, info = put_file(token, key, args.apk)
     print(ret)
-    if ret is None or 'code' not in ret or ret['code'] != 200:
+    if ret is None or 'success' not in ret or ret['success'] != True:
         print('upload error')
         return 1
 
     print('2. wait for the APK to be processed')
     r_json = None
     while True:
-        r = requests.get(API_BASE + 'api/v1/insight/processed_app', headers={'Authorization': authorization}, params={'key': key})
+        r = requests.get(API_BASE + '/insight/process', headers={'Authorization': authorization}, params={'key': key})
         r_json = r.json()
-        if r_json['code'] != 200:
+        if r_json['success'] != True:
             print(r_json)
             return 1
         if r_json['state'] == 'return_upload_auth' or r_json['state'] == 'upload_finish' or r_json['state'] == 'server_download':
             print('waiting...... server is downloading the APK')
         elif r_json['state'] == 'rewriting':
             print('waiting...... server is processing the APK')
-        elif r_json['state'] == 'rewrite_success':
+        elif r_json['state'] == 'rewrite_success' or r_json['state'] == 'server_upload':
             print('waiting...... server is uploading the processed APK')
         elif r_json['state'] == 'server_upload_success':
             print('server has completed processing the APK')
@@ -148,11 +148,12 @@ def process(args):
             print('server fails to process the APK')
             return 1
         time.sleep(ANXIETY)
-    download_url = r_json['download_url']
-    print(download_url)
+    print(r_json)
+    downloadURL = r_json['downloadURL']
+    print(downloadURL)
 
     print('3. download processed APK')
-    r = requests.get(download_url)
+    r = requests.get(downloadURL)
     if r.status_code != 200:
         print('download failed')
         return 1
@@ -203,11 +204,11 @@ def analyze(args):
             myzip.write(d + '.log')
 
     print('1. request analysis from the server')
-    r = requests.post(API_BASE + 'api/v1/insight/analyze', headers={'Authorization': authorization}, data={'pkg_name': pkg}, verify=False)
+    r = requests.post(API_BASE + '/insight/analyze/qiniu', headers={'Authorization': authorization}, data={'pkgName': pkg}, verify=False)
     r_json = r.json()
     print(r_json)
     if r.status_code != 200:
-        print(r_json['msg'])
+        print(r_json)
         return 1
     token = r_json['token']
     key = r_json['key']
@@ -217,16 +218,16 @@ def analyze(args):
     print('log file: ' + log_zip)
     print('uploading......')
     ret, info = put_file(token, key, log_zip)
-    if (ret is None or 'code' not in ret or ret['code'] != 200):
+    if (ret is None or 'success' not in ret or ret['success'] != True):
         print('upload error')
         return 1
 
     print('3. server analyzing')
     r_json = None
     while True:
-        r = requests.get(API_BASE + 'api/v1/insight/report', headers={'Authorization': authorization}, params={'key': key})
+        r = requests.get(API_BASE + '/insight/analyze', headers={'Authorization': authorization}, params={'key': key})
         r_json = r.json()
-        if r_json['code'] != 200:
+        if r_json['success'] != True:
             print(r_json)
             return 1
         if r_json['state'] == 'return_upload_auth' or r_json['state'] == 'upload_finish' or r_json['state'] == 'server_download':
@@ -243,11 +244,11 @@ def analyze(args):
             print('server fails to analyze the logs')
             return 1
         time.sleep(ANXIETY)
-    download_url = r_json['download_url']
-    print(download_url)
+    downloadURL = r_json['downloadURL']
+    print(downloadURL)
 
     print('4. download report')
-    r = requests.get(download_url)
+    r = requests.get(downloadURL)
     if r.status_code != 200:
         print('download failed')
         return 1
