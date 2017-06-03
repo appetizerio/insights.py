@@ -2,13 +2,13 @@
 Appetizer 质量监控的 Python 客户端
 
 使用流程
-* 将待测试的 apk 上传到服务端进行插装
-* 下载插装后的 apk
-* 安装插装后的应用，授权，进行测试流程（自动化测试，人工测试都可以），log会存在手机本地
+* 将待测试的 apk 上传到服务端进行插桩
+* 下载插桩后的 apk
+* 安装插桩后的应用，授权，进行测试流程（自动化测试，人工测试都可以），log会存在手机本地
 * 将设备通过USB连接到开发机，并使用本客户端将 log 上传至服务端进行分析
 * 下载分析报告文件（JSON格式，可通过Appetizer Platform > 1.1.0进行简单可视化），报告格式以及样例报告详细见Wiki
 
-插装和分析包括
+插桩和分析包括
 * 应用崩溃（Crash）的原因和崩溃时的状态
 * 所有线程抛出的异常（即使不会造成崩溃）
 * 应用未响应（ANR）的状态
@@ -56,9 +56,9 @@ python3 insights.py process apk processed_apk
 python3 insights.py process my.apk my_processed.apk 
 ```
 
-插装需要上传、处理、下载，需要一定时间，依据网络情况与APK大小不同大致在1分钟-3分钟内，期间会有输出表示进展情况。
+插桩需要上传、处理、下载，需要一定时间，依据网络情况与APK大小不同大致在1分钟-3分钟内，期间会有输出表示进展情况。
 
-### 安装插装后的APK并授权
+### 安装插桩后的APK并授权
 
 ``` Shell
 python3 insights.py install my_processed.apk serialno1,serialno2
@@ -67,7 +67,7 @@ python3 insights.py install my_processed.apk serialno1,serialno2
 
 
 ### 测试
-Appetizer 质量监控客户端对测试没有特别限制，可以是简单的人工测试，也可以是复杂的回归测试，测试长度不限。插装后的APK会自动log
+Appetizer 质量监控客户端对测试没有特别限制，可以是简单的人工测试，也可以是复杂的回归测试，测试长度不限。插桩后的APK会自动log
 
 ### 上传log获取分析报告
 ``` Shell
@@ -81,5 +81,4 @@ python3 insights.py analyze my_processed.apk report_path.zip serialno1,serialno2
 ``` Shell
 python3 insights.py clearlog my_processed.apk serialno1,serialno2 --clear
 ```
-将设备上有指定插装后的APK的log清除
-
+将设备上有指定插桩后的APK的log清除
