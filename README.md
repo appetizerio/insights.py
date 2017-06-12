@@ -71,10 +71,10 @@ Appetizer 质量监控客户端对测试没有特别限制，可以是简单的�
 
 ### 上传log获取分析报告
 ``` Shell
-python3 insights.py analyze my_processed.apk report_path.zip serialno1,serialno2 --clear
+python3 insights.py analyze my_processed.apk report_path serialno1,serialno2 --clear
 ```
 * serialno1等是串号同上
-* report_path.zip 是分析报告存放的路径，需要文件名，注意这是一个压缩包
+* report_path 是分析报告存放的路径，需要文件名，报告文件由客户端>=1.1.3 <1.2.0打开
 * `--clear`是可选参数，用于从设备下载log后将设备上log清空
 
 ### 其他功能
