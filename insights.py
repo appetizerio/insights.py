@@ -28,6 +28,7 @@ import requests
 from apk import APK
 from qiniu import put_file, etag
 import qiniu.config
+import gzip
 
 if sys.version_info < (3, 0):
     print('Sorry, only Python3+ is supported for now')
@@ -190,18 +191,23 @@ def analyze(args):
         print('Please login to AppetizerIO first')
         return 1
     authorization = 'Bearer ' + access_token
-    pkg = APK(args.apk).get_package()
+    apk = APK(args.apk)
+    pkg = apk.get_package()
+    with open('AndroidManifest.json', 'w') as f:
+         f.write(subprocess.check_output(['node', 'apkdump.js', args.apk]).decode('utf-8'))
     log_zip = pkg + '.log.zip'
     serialnos = args.serialnos.split(',')
     DEVICE_LOG = DEVICE_LOG_BASE + pkg + '.log'
     token = None
     print('0. harvest and compress device logs')
     with zipfile.ZipFile(log_zip, 'w') as myzip:
+        myzip.write('AndroidManifest.json')
         for d in serialnos:
             subprocess.check_call(['adb', '-s', d, 'pull', DEVICE_LOG, d + '.log'])
             if args.clear:
                 subprocess.check_call(['adb', '-s', d, 'shell', 'rm', DEVICE_LOG])
             myzip.write(d + '.log')
+    os.remove('AndroidManifest.json')
 
     print('1. request analysis from the server')
     r = requests.post(API_BASE + '/insight/analyze/qiniu', headers={'Authorization': authorization}, data={'pkgName': pkg}, verify=False)
@@ -254,8 +260,10 @@ def analyze(args):
         return 1
     print('download completed')
     with open(args.report_path, 'wb') as f:
+        data = bytearray()
         for chunk in r.iter_content(chunk_size=1024000):
-            f.write(chunk)
+            data += chunk
+        f.write(gzip.decompress(data))
 
     print('5. cleanup')
     os.remove(log_zip)
