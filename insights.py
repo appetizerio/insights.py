@@ -234,7 +234,7 @@ def analyze(args):
             print('waiting...... server is downloading log')
         elif r_json['state'] == 'analyzing':
             print('waiting...... server is analyzing')
-        elif r_json['state'] == 'analyze_success':
+        elif r_json['state'] == 'analyze_success' or r_json['state'] == 'server_upload':
             print('waiting...... server is uploading the report')
         elif r_json['state'] == 'server_upload_success':
             print('server has generated and uploaded the report')
