@@ -64,9 +64,11 @@ python insights.py process my.apk my_processed.apk
 ### 安装插桩后的APK并授权
 
 ``` Shell
-python insights.py install my_processed.apk serialno1,serialno2
+python insights.py install my_processed.apk -s serialno1 -s serialno2
 ```
-其中 `serialno1` 等是设备的串号，通过 `adb devices` 获得，需要安装到多个设备可以用逗号隔开不要有空格，安装后会自动授权log （小米无法自动化授权，建议在安装完成后授权读写SDCARD）
+* `my_processed.apk` 是插桩后的apk
+* `-s`是可选参数， `serialno1` `serialno2` 之类的是设备的串号，通过 `adb devices` 获得，需要安装到多个设备可以用多个`-s`命令指定设备; 不提供任何`-s`命令时，默认认为只有一个设备并对该设备进行安装
+* 安装后会自动授权log （小米无法自动化授权，建议在安装完成后授权读写SDCARD）
 
 
 ### 测试
@@ -74,14 +76,14 @@ Appetizer 质量监控客户端对测试没有特别限制，可以是简单的�
 
 ### 上传log获取分析报告
 ``` Shell
-python insights.py analyze my_processed.apk serialno1,serialno2 --clear
+python insights.py analyze my_processed.apk -s serialno1 -s serialno2 --clear
 ```
-* serialno1等是串号同上
+* `-s`是可选参数， `serialno1` `serialno2` 之类的是设备的串号，通过 `adb devices` 获得，需要分析多个设备上的log可以用多个`-s`命令指定设备; 不提供任何`-s`命令时，默认认为只有一个设备并对该设备进行分析
 * `--clear`是可选参数，用于从设备下载log后将设备上log清空
 * 分析成功后可以通过[Appetizer Desktop](https://appetizer.io) >= 1.2.0 查看
 
 ### 其他功能
 ``` Shell
-python insights.py clearlog my_processed.apk serialno1,serialno2 --clear
+python insights.py clearlog my_processed.apk -s serialno1 -s serialno2 --clear
 ```
 将设备上有指定插桩后的APK的log清除

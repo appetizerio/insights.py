@@ -36,9 +36,20 @@ TOKEN_PATH = os.path.join(os.path.dirname(__file__), '.access_token')
 DEVICE_LOG_BASE = '/sdcard/io.appetizer/'
 
 
+def get_apk_manifest(apk):
+    return subprocess.check_output(['node', 'apkdump.js', apk]).decode('utf-8')
+
+
 def get_apk_package(apk):
-    manifest = subprocess.check_output(['node', 'apkdump.js', apk]).decode('utf-8')
+    manifest = get_apk_manifest(apk)
     return json.loads(manifest)['package']
+
+
+def adb(cmd, d=None, showCmd=False):
+    dselector = [] if d is None else ['-s', d]
+    fullCmd = ['adb'] + dselector + cmd
+    if showCmd: print(fullCmd)
+    return subprocess.check_call(fullCmd)
 
 
 def _load_token():
@@ -103,7 +114,7 @@ def process(args):
     pkg = get_apk_package(args.apk)
     token = None
     try:
-        subprocess.check_call(['adb', 'version'])
+        adb(['version'])
     except:
         print('adb not available')
         return 1
@@ -166,22 +177,18 @@ def process(args):
 
 def install(args):
     pkg = get_apk_package(args.apk)
-    serialnos = args.serialnos.split(',')
+    serialnos = args.serialnos if len(args.serialnos) > 0 else [None]
     print('This command is not useful for MIUI devices; please click on the installation popup dialog and manually grant WRITE_EXTERNAL_STROAGE permission')
     print('1. install processed APK')
     for d in serialnos:
-        subprocess.check_call(['adb', '-s', d, 'uninstall', pkg])
-        subprocess.check_call(['adb', '-s', d, 'install', args.apk])  # Note: Xiaomi will pop up a dialog
+        adb(['uninstall', pkg], d)
+        adb(['install', args.apk], d) # Note: Xiaomi will pop up a dialog
     print('APK installed')
 
     print('2. grant permissions for logging')
     for d in serialnos:
-        grantWrite = ['adb', '-s', d, 'shell', 'pm', 'grant', pkg, 'android.permission.WRITE_EXTERNAL_STORAGE']
-        print(" ".join(grantWrite))
-        subprocess.check_call(['adb', '-s', d, 'shell', 'pm', 'grant', pkg, 'android.permission.WRITE_EXTERNAL_STORAGE'])
-        grantRead = ['adb', '-s', d, 'shell', 'pm', 'grant', pkg, 'android.permission.READ_EXTERNAL_STORAGE']
-        print(" ".join(grantRead))
-        subprocess.check_call(['adb', '-s', d, 'shell', 'pm', 'grant', pkg, 'android.permission.READ_EXTERNAL_STORAGE'])
+        adb(['shell', 'pm', 'grant', pkg, 'android.permission.WRITE_EXTERNAL_STORAGE'], d, True)
+        adb(['shell', 'pm', 'grant', pkg, 'android.permission.READ_EXTERNAL_STORAGE'], d, True)
     print('permission granted')
 
 
@@ -193,19 +200,20 @@ def analyze(args):
     authorization = 'Bearer ' + access_token
     pkg = get_apk_package(args.apk)
     with open('AndroidManifest.json', 'w') as f:
-         f.write(subprocess.check_output(['node', 'apkdump.js', args.apk]).decode('utf-8'))
+         f.write(get_apk_manifest(args.apk))
     log_zip = pkg + '.log.zip'
-    serialnos = args.serialnos.split(',')
+    serialnos = args.serialnos if len(args.serialnos) > 0 else [None]
     DEVICE_LOG = DEVICE_LOG_BASE + pkg + '.log'
     token = None
     print('0. harvest and compress device logs')
     with zipfile.ZipFile(log_zip, 'w') as myzip:
         myzip.write('AndroidManifest.json')
         for d in serialnos:
-            subprocess.check_call(['adb', '-s', d, 'pull', DEVICE_LOG, d + '.log'])
+            fname = d if d is not None else "devicelog"
+            adb(['pull', DEVICE_LOG, fname + '.log'], d)
             if args.clear:
-                subprocess.check_call(['adb', '-s', d, 'shell', 'rm', DEVICE_LOG])
-            myzip.write(d + '.log')
+                adb(['shell', 'rm', DEVICE_LOG], d)
+            myzip.write(fname + '.log')
     os.remove('AndroidManifest.json')
 
     print('1. request analysis from the server')
@@ -253,7 +261,10 @@ def analyze(args):
     print('4. cleanup')
     os.remove(log_zip)
     for d in serialnos:
-        os.remove(d + '.log')
+        if d is None:
+            os.remove('devicelog.log')
+        else:
+            os.remove(d + '.log')
 
     print('All done! You can now view the report via Appetizer Desktop')
     if not args.clear:
@@ -262,10 +273,10 @@ def analyze(args):
 
 def clearlog(args):
     pkg = get_apk_package(args.apk)
-    devices = args.serialnos.split(',')
+    serialnos = args.serialnos if len(args.serialnos) > 0 else [None]
     DEVICE_LOG = DEVICE_LOG_BASE + pkg + '.log'
-    for d in devices:
-        subprocess.check_call(['adb', '-s', d, 'shell', 'rm', DEVICE_LOG]) 
+    for d in serialnos:
+        adb(['shell', 'rm', DEVICE_LOG], d)
     print('done')
 
 
@@ -289,18 +300,18 @@ def main():
 
     analyze_parser = subparsers.add_parser('analyze', help='fetch and analyze device logs and generate diagnosis report')
     analyze_parser.add_argument('apk', action='store', help='the path to the processed APK file')
-    analyze_parser.add_argument('serialnos', action='store', help='a list of Android devices to fetch logs, devices identified by their serial numbers, comma separated')
+    analyze_parser.add_argument('-s', dest='serialnos', default=[], action='append', help='device serial number, see adb devices output')
     analyze_parser.add_argument('--clear', action='store_true', default=False, help='delete the logs from the devices after the analysis')
     analyze_parser.set_defaults(func=analyze)
 
     clearlog_parser = subparsers.add_parser('clearlog', help='delete the logs generated by a particular APK on the devices')
     clearlog_parser.add_argument('apk', action='store', help='the path to the processed APK file')
-    clearlog_parser.add_argument('serialnos', action='store', help='a list of Android devices to fetch logs, devices identified by their serial numbers, comma separated')
+    clearlog_parser.add_argument('-s', dest='serialnos', default=[], action='append', help='device serial number, see adb devices output')
     clearlog_parser.set_defaults(func=clearlog)
 
     install_parser = subparsers.add_parser('install', help='install processed APK and grant necessary permissions')
     install_parser.add_argument('apk', action='store', help='the path to the processed APK file')
-    install_parser.add_argument('serialnos', action='store', help='a list of Android devices to install the processed APK, devices identified by their serial numbers, comma separated')
+    install_parser.add_argument('-s','--serialno', dest='serialnos', default=[], action='append', help='device serial number, see adb devices output')
     install_parser.set_defaults(func=install)
 
     args = parser.parse_args()
