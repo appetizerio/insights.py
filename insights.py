@@ -25,20 +25,20 @@ import zipfile
 import os
 import codecs
 import requests
-from apk import APK
 from qiniu import put_file, etag
 import qiniu.config
 import gzip
-
-if sys.version_info < (3, 0):
-    print('Sorry, only Python3+ is supported for now')
-    print('Python3 is not new; it was released on Dec. 2008')
-    sys.exit(1)
+import json
 
 ANXIETY = 5
 API_BASE = 'https://api.appetizer.io/v2'
 TOKEN_PATH = os.path.join(os.path.dirname(__file__), '.access_token')
 DEVICE_LOG_BASE = '/sdcard/io.appetizer/'
+
+
+def get_apk_package(apk):
+    manifest = subprocess.check_output(['node', 'apkdump.js', apk]).decode('utf-8')
+    return json.loads(manifest)['package']
 
 
 def _load_token():
@@ -100,14 +100,14 @@ def process(args):
         return 1
     authorization = 'Bearer ' + access_token
     original_name = os.path.basename(args.apk)
-    pkg = APK(args.apk).get_package()
+    pkg = get_apk_package(args.apk)
     token = None
     try:
         subprocess.check_call(['adb', 'version'])
     except:
         print('adb not available')
         return 1
-    print('0. request for Appetizer Insights quality monitoring module')
+    print('0. request Appetizer Insights upload permission')
     r = requests.post(API_BASE + '/insight/process/qiniu', headers={'Authorization': authorization}, verify=False)
     r_json = r.json()
     print(r_json)
@@ -165,7 +165,7 @@ def process(args):
 
 
 def install(args):
-    pkg = APK(args.apk).get_package()
+    pkg = get_apk_package(args.apk)
     serialnos = args.serialnos.split(',')
     print('This command is not useful for MIUI devices; please click on the installation popup dialog and manually grant WRITE_EXTERNAL_STROAGE permission')
     print('1. install processed APK')
@@ -191,8 +191,7 @@ def analyze(args):
         print('Please login to AppetizerIO first')
         return 1
     authorization = 'Bearer ' + access_token
-    apk = APK(args.apk)
-    pkg = apk.get_package()
+    pkg = get_apk_package(args.apk)
     with open('AndroidManifest.json', 'w') as f:
          f.write(subprocess.check_output(['node', 'apkdump.js', args.apk]).decode('utf-8'))
     log_zip = pkg + '.log.zip'
@@ -250,33 +249,19 @@ def analyze(args):
             print('server fails to analyze the logs')
             return 1
         time.sleep(ANXIETY)
-    downloadURL = r_json['downloadURL']
-    print(downloadURL)
 
-    print('4. download report')
-    r = requests.get(downloadURL)
-    if r.status_code != 200:
-        print('download failed')
-        return 1
-    print('download completed')
-    with open(args.report_path, 'wb') as f:
-        data = bytearray()
-        for chunk in r.iter_content(chunk_size=1024000):
-            data += chunk
-        f.write(gzip.decompress(data))
-
-    print('5. cleanup')
+    print('4. cleanup')
     os.remove(log_zip)
     for d in serialnos:
         os.remove(d + '.log')
 
-    print('All done! Report file stored at: ' + args.report_path)
+    print('All done! You can now view the report via Appetizer Desktop')
     if not args.clear:
         print('Please remember to delete old logs with clearlog command to avoid repeated analysis')
 
 
 def clearlog(args):
-    pkg = APK(args.apk).get_package()
+    pkg = get_apk_package(args.apk)
     devices = args.serialnos.split(',')
     DEVICE_LOG = DEVICE_LOG_BASE + pkg + '.log'
     for d in devices:
@@ -304,7 +289,6 @@ def main():
 
     analyze_parser = subparsers.add_parser('analyze', help='fetch and analyze device logs and generate diagnosis report')
     analyze_parser.add_argument('apk', action='store', help='the path to the processed APK file')
-    analyze_parser.add_argument('report_path', action='store', help='the path to save the report')
     analyze_parser.add_argument('serialnos', action='store', help='a list of Android devices to fetch logs, devices identified by their serial numbers, comma separated')
     analyze_parser.add_argument('--clear', action='store_true', default=False, help='delete the logs from the devices after the analysis')
     analyze_parser.set_defaults(func=analyze)
