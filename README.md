@@ -81,6 +81,17 @@ python insights.py analyze my_processed.apk -s serialno1 -s serialno2 --clear
 * `-s`是可选参数， `serialno1` `serialno2` 之类的是设备的串号，通过 `adb devices` 获得，需要分析多个设备上的log可以用多个`-s`命令指定设备; 不提供任何`-s`命令时，默认认为只有一个设备并对该设备进行分析
 * `--clear`是可选参数，用于从设备下载log后将设备上log清空
 * 分析成功后可以通过[Appetizer Desktop](https://appetizer.io) >= 1.2.0 查看
+* 分析成功后，如果服务器可以导出报告，相应的导出报告下载路径会显示，例如：
+``` Shell
+waiting...... server is uploading the report
+server has generated and uploaded the report
+exported reports available at:
+{
+    "csv": "http://cache.appetizer.io/xxxxx.csv.zip",
+    "json": "http://cache.appetizer.io/xxxxx.json.zip",
+    "html": "http://cache.appetizer.io/xxxxx.html.zip",
+}
+```
 
 ### 其他功能
 ``` Shell
