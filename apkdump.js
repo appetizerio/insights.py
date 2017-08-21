@@ -102,9 +102,7 @@
 	  BinaryXmlParser = __webpack_require__(51);
 
 	  ApkReader = (function() {
-	    var MANIFEST;
-
-	    MANIFEST = 'AndroidManifest.xml';
+	    ApkReader.MANIFEST = 'AndroidManifest.xml';
 
 	    ApkReader.open = function(apk) {
 	      return Promise.resolve(new ApkReader(apk));
@@ -162,7 +160,7 @@
 	        endListener = errorListener = entryListener = void 0;
 	        return new Promise(function(resolve, reject) {
 	          zipfile.on('entry', entryListener = function(entry) {
-	            if (entry.fileName === MANIFEST) {
+	            if (entry.fileName === file) {
 	              return resolve(Promise.fromCallback(function(callback) {
 	                return zipfile.openReadStream(entry, callback);
 	              }));
@@ -186,8 +184,14 @@
 	      });
 	    };
 
+	    ApkReader.prototype.readContent = function(path) {
+	      return this.usingFile(path, function(content) {
+	        return content;
+	      });
+	    };
+
 	    ApkReader.prototype.readManifest = function() {
-	      return this.usingFile(MANIFEST, function(content) {
+	      return this.usingFile(ApkReader.MANIFEST, function(content) {
 	        return new ManifestParser(content).parse();
 	      });
 	    };
@@ -240,6 +244,7 @@
 	  if (options.autoClose == null) options.autoClose = true;
 	  if (options.lazyEntries == null) options.lazyEntries = false;
 	  if (options.decodeStrings == null) options.decodeStrings = true;
+	  if (options.validateEntrySizes == null) options.validateEntrySizes = true;
 	  if (callback == null) callback = defaultCallback;
 	  fs.open(path, "r", function(err, fd) {
 	    if (err) return callback(err);
@@ -259,6 +264,7 @@
 	  if (options.autoClose == null) options.autoClose = false;
 	  if (options.lazyEntries == null) options.lazyEntries = false;
 	  if (options.decodeStrings == null) options.decodeStrings = true;
+	  if (options.validateEntrySizes == null) options.validateEntrySizes = true;
 	  if (callback == null) callback = defaultCallback;
 	  fs.fstat(fd, function(err, stats) {
 	    if (err) return callback(err);
@@ -276,6 +282,7 @@
 	  options.autoClose = false;
 	  if (options.lazyEntries == null) options.lazyEntries = false;
 	  if (options.decodeStrings == null) options.decodeStrings = true;
+	  if (options.validateEntrySizes == null) options.validateEntrySizes = true;
 	  // i got your open file right here.
 	  var reader = fd_slicer.createFromBuffer(buffer);
 	  fromRandomAccessReader(reader, buffer.length, options, callback);
@@ -291,6 +298,7 @@
 	  if (options.lazyEntries == null) options.lazyEntries = false;
 	  if (options.decodeStrings == null) options.decodeStrings = true;
 	  var decodeStrings = !!options.decodeStrings;
+	  if (options.validateEntrySizes == null) options.validateEntrySizes = true;
 	  if (callback == null) callback = defaultCallback;
 	  if (typeof totalSize !== "number") throw new Error("expected totalSize parameter to be a number");
 	  if (totalSize > Number.MAX_SAFE_INTEGER) {
@@ -307,7 +315,7 @@
 	  // as a consequence of this design decision, it's possible to have ambiguous zip file metadata if a coherent eocdr was in the comment.
 	  // we search backwards for a eocdr signature, and hope that whoever made the zip file was smart enough to forbid the eocdr signature in the comment.
 	  var eocdrWithoutCommentSize = 22;
-	  var maxCommentSize = 0x10000; // 2-byte size
+	  var maxCommentSize = 0xffff; // 2-byte size
 	  var bufferSize = Math.min(eocdrWithoutCommentSize + maxCommentSize, totalSize);
 	  var buffer = new Buffer(bufferSize);
 	  var bufferReadStart = totalSize - buffer.length;
@@ -343,7 +351,7 @@
 	                                  : eocdrBuffer.slice(22);
 
 	      if (!(entryCount === 0xffff || centralDirectoryOffset === 0xffffffff)) {
-	        return callback(null, new ZipFile(reader, centralDirectoryOffset, totalSize, entryCount, comment, options.autoClose, options.lazyEntries, decodeStrings));
+	        return callback(null, new ZipFile(reader, centralDirectoryOffset, totalSize, entryCount, comment, options.autoClose, options.lazyEntries, decodeStrings, options.validateEntrySizes));
 	      }
 
 	      // ZIP64 format
@@ -384,7 +392,7 @@
 	          // 48 - offset of start of central directory with respect to the starting disk number     8 bytes
 	          centralDirectoryOffset = readUInt64LE(zip64EocdrBuffer, 48);
 	          // 56 - zip64 extensible data sector                                (variable size)
-	          return callback(null, new ZipFile(reader, centralDirectoryOffset, totalSize, entryCount, comment, options.autoClose, options.lazyEntries, decodeStrings));
+	          return callback(null, new ZipFile(reader, centralDirectoryOffset, totalSize, entryCount, comment, options.autoClose, options.lazyEntries, decodeStrings, options.validateEntrySizes));
 	        });
 	      });
 	      return;
@@ -394,7 +402,7 @@
 	}
 
 	util.inherits(ZipFile, EventEmitter);
-	function ZipFile(reader, centralDirectoryOffset, fileSize, entryCount, comment, autoClose, lazyEntries, decodeStrings) {
+	function ZipFile(reader, centralDirectoryOffset, fileSize, entryCount, comment, autoClose, lazyEntries, decodeStrings, validateEntrySizes) {
 	  var self = this;
 	  EventEmitter.call(self);
 	  self.reader = reader;
@@ -414,6 +422,7 @@
 	  self.autoClose = !!autoClose;
 	  self.lazyEntries = !!lazyEntries;
 	  self.decodeStrings = !!decodeStrings;
+	  self.validateEntrySizes = !!validateEntrySizes;
 	  self.isOpen = true;
 	  self.emittedError = false;
 
@@ -486,6 +495,8 @@
 	    entry.externalFileAttributes = buffer.readUInt32LE(38);
 	    // 42 - Relative offset of local file header
 	    entry.relativeOffsetOfLocalHeader = buffer.readUInt32LE(42);
+
+	    if (entry.generalPurposeBitFlag & 0x40) return emitErrorAndAutoClose(self, new Error("strong encryption is not supported"));
 
 	    self.readEntryCursor += 46;
 
@@ -602,8 +613,13 @@
 	      }
 
 	      // validate file size
-	      if (entry.compressionMethod === 0) {
-	        if (entry.compressedSize !== entry.uncompressedSize) {
+	      if (self.validateEntrySizes && entry.compressionMethod === 0) {
+	        var expectedCompressedSize = entry.uncompressedSize;
+	        if (entry.isEncrypted()) {
+	          // traditional encryption prefixes the file data with a header
+	          expectedCompressedSize += 12;
+	        }
+	        if (entry.compressedSize !== expectedCompressedSize) {
 	          var msg = "compressed/uncompressed size mismatch for stored file: " + entry.compressedSize + " != " + entry.uncompressedSize;
 	          return emitErrorAndAutoClose(self, new Error(msg));
 	        }
@@ -620,9 +636,60 @@
 	  });
 	};
 
-	ZipFile.prototype.openReadStream = function(entry, callback) {
+	ZipFile.prototype.openReadStream = function(entry, options, callback) {
 	  var self = this;
+	  // parameter validation
+	  var relativeStart = 0;
+	  var relativeEnd = entry.compressedSize;
+	  if (callback == null) {
+	    callback = options;
+	    options = {};
+	  } else {
+	    // validate options that the caller has no excuse to get wrong
+	    if (options.decrypt != null) {
+	      if (!entry.isEncrypted()) {
+	        throw new Error("options.decrypt can only be specified for encrypted entries");
+	      }
+	      if (options.decrypt !== false) throw new Error("invalid options.decrypt value: " + options.decrypt);
+	      if (entry.isCompressed()) {
+	        if (options.decompress !== false) throw new Error("entry is encrypted and compressed, and options.decompress !== false");
+	      }
+	    }
+	    if (options.decompress != null) {
+	      if (!entry.isCompressed()) {
+	        throw new Error("options.decompress can only be specified for compressed entries");
+	      }
+	      if (!(options.decompress === false || options.decompress === true)) {
+	        throw new Error("invalid options.decompress value: " + options.decompress);
+	      }
+	    }
+	    if (options.start != null || options.end != null) {
+	      if (entry.isCompressed() && options.decompress !== false) {
+	        throw new Error("start/end range not allowed for compressed entry without options.decompress === false");
+	      }
+	      if (entry.isEncrypted() && options.decrypt !== false) {
+	        throw new Error("start/end range not allowed for encrypted entry without options.decrypt === false");
+	      }
+	    }
+	    if (options.start != null) {
+	      relativeStart = options.start;
+	      if (relativeStart < 0) throw new Error("options.start < 0");
+	      if (relativeStart > entry.compressedSize) throw new Error("options.start > entry.compressedSize");
+	    }
+	    if (options.end != null) {
+	      relativeEnd = options.end;
+	      if (relativeEnd < 0) throw new Error("options.end < 0");
+	      if (relativeEnd > entry.compressedSize) throw new Error("options.end > entry.compressedSize");
+	      if (relativeEnd < relativeStart) throw new Error("options.end < options.start");
+	    }
+	  }
+	  // any further errors can either be caused by the zipfile,
+	  // or were introduced in a minor version of yauzl,
+	  // so should be passed to the client rather than thrown.
 	  if (!self.isOpen) return callback(new Error("closed"));
+	  if (entry.isEncrypted()) {
+	    if (options.decrypt !== false) return callback(new Error("entry is encrypted, and options.decrypt !== false"));
+	  }
 	  // make sure we don't lose the fd before we open the actual read stream
 	  self.reader.ref();
 	  var buffer = new Buffer(30);
@@ -650,13 +717,13 @@
 	      // 30 - File name
 	      // 30+n - Extra field
 	      var localFileHeaderEnd = entry.relativeOffsetOfLocalHeader + buffer.length + fileNameLength + extraFieldLength;
-	      var compressed;
+	      var decompress;
 	      if (entry.compressionMethod === 0) {
 	        // 0 - The file is stored (no compression)
-	        compressed = false;
+	        decompress = false;
 	      } else if (entry.compressionMethod === 8) {
 	        // 8 - The file is Deflated
-	        compressed = true;
+	        decompress = options.decompress != null ? options.decompress : true;
 	      } else {
 	        return callback(new Error("unsupported compression method: " + entry.compressionMethod));
 	      }
@@ -671,9 +738,12 @@
 	              fileDataStart + " + " + entry.compressedSize + " > " + self.fileSize));
 	        }
 	      }
-	      var readStream = self.reader.createReadStream({start: fileDataStart, end: fileDataEnd});
+	      var readStream = self.reader.createReadStream({
+	        start: fileDataStart + relativeStart,
+	        end: fileDataStart + relativeEnd,
+	      });
 	      var endpointStream = readStream;
-	      if (compressed) {
+	      if (decompress) {
 	        var destroyed = false;
 	        var inflateFilter = zlib.createInflateRaw();
 	        readStream.on("error", function(err) {
@@ -682,22 +752,29 @@
 	            if (!destroyed) inflateFilter.emit("error", err);
 	          });
 	        });
+	        readStream.pipe(inflateFilter);
 
-	        var checkerStream = new AssertByteCountStream(entry.uncompressedSize);
-	        inflateFilter.on("error", function(err) {
-	          // forward zlib errors to the client-visible stream
-	          setImmediate(function() {
-	            if (!destroyed) checkerStream.emit("error", err);
+	        if (self.validateEntrySizes) {
+	          endpointStream = new AssertByteCountStream(entry.uncompressedSize);
+	          inflateFilter.on("error", function(err) {
+	            // forward zlib errors to the client-visible stream
+	            setImmediate(function() {
+	              if (!destroyed) endpointStream.emit("error", err);
+	            });
 	          });
-	        });
-	        checkerStream.destroy = function() {
+	          inflateFilter.pipe(endpointStream);
+	        } else {
+	          // the zlib filter is the client-visible stream
+	          endpointStream = inflateFilter;
+	        }
+	        // this is part of yauzl's API, so implement this function on the client-visible stream
+	        endpointStream.destroy = function() {
 	          destroyed = true;
-	          inflateFilter.unpipe(checkerStream);
+	          if (inflateFilter !== endpointStream) inflateFilter.unpipe(endpointStream);
 	          readStream.unpipe(inflateFilter);
-	          // TODO: the inflateFilter now causes a memory leak. see Issue #27.
+	          // TODO: the inflateFilter may cause a memory leak. see Issue #27.
 	          readStream.destroy();
 	        };
-	        endpointStream = readStream.pipe(inflateFilter).pipe(checkerStream);
 	      }
 	      callback(null, endpointStream);
 	    } finally {
@@ -710,6 +787,12 @@
 	}
 	Entry.prototype.getLastModDate = function() {
 	  return dosDateTimeToDate(this.lastModFileDate, this.lastModFileTime);
+	};
+	Entry.prototype.isEncrypted = function() {
+	  return (this.generalPurposeBitFlag & 0x1) !== 0;
+	};
+	Entry.prototype.isCompressed = function() {
+	  return this.compressionMethod === 8;
 	};
 
 	function dosDateTimeToDate(date, time) {
@@ -1471,30 +1554,31 @@
 	var debug = __webpack_require__(25)(Promise, Context);
 	var CapturedTrace = debug.CapturedTrace;
 	var PassThroughHandlerContext =
-	    __webpack_require__(26)(Promise, tryConvertToPromise);
+	    __webpack_require__(26)(Promise, tryConvertToPromise, NEXT_FILTER);
 	var catchFilter = __webpack_require__(27)(NEXT_FILTER);
 	var nodebackForPromise = __webpack_require__(28);
 	var errorObj = util.errorObj;
 	var tryCatch = util.tryCatch;
 	function check(self, executor) {
+	    if (self == null || self.constructor !== Promise) {
+	        throw new TypeError("the promise constructor cannot be invoked directly\u000a\u000a    See http://goo.gl/MqrFmX\u000a");
+	    }
 	    if (typeof executor !== "function") {
 	        throw new TypeError("expecting a function but got " + util.classString(executor));
 	    }
-	    if (self.constructor !== Promise) {
-	        throw new TypeError("the promise constructor cannot be invoked directly\u000a\u000a    See http://goo.gl/MqrFmX\u000a");
-	    }
+
 	}
 
 	function Promise(executor) {
+	    if (executor !== INTERNAL) {
+	        check(this, executor);
+	    }
 	    this._bitField = 0;
 	    this._fulfillmentHandler0 = undefined;
 	    this._rejectionHandler0 = undefined;
 	    this._promise0 = undefined;
 	    this._receiver0 = undefined;
-	    if (executor !== INTERNAL) {
-	        check(this, executor);
-	        this._resolveFromExecutor(executor);
-	    }
+	    this._resolveFromExecutor(executor);
 	    this._promiseCreated();
 	    this._fireEvent("promiseCreated", this);
 	}
@@ -1513,8 +1597,8 @@
 	            if (util.isObject(item)) {
 	                catchInstances[j++] = item;
 	            } else {
-	                return apiRejection("expecting an object but got " +
-	                    "A catch statement predicate " + util.classString(item));
+	                return apiRejection("Catch statement predicate: " +
+	                    "expecting an object but got " + util.classString(item));
 	            }
 	        }
 	        catchInstances.length = j;
@@ -1893,6 +1977,7 @@
 	};
 
 	Promise.prototype._resolveFromExecutor = function (executor) {
+	    if (executor === INTERNAL) return;
 	    var promise = this;
 	    this._captureStackTrace();
 	    this._pushContext();
@@ -2150,7 +2235,7 @@
 	__webpack_require__(34)(
 	    Promise, PromiseArray, tryConvertToPromise, INTERNAL, async, getDomain);
 	Promise.Promise = Promise;
-	Promise.version = "3.4.7";
+	Promise.version = "3.5.0";
 	__webpack_require__(35)(Promise, PromiseArray, apiRejection, tryConvertToPromise, INTERNAL, debug);
 	__webpack_require__(36)(Promise);
 	__webpack_require__(37)(Promise, apiRejection, tryConvertToPromise, createContext, INTERNAL, debug);
@@ -2870,11 +2955,11 @@
 
 	        var scheduleToggle = function() {
 	            if (toggleScheduled) return;
-	                toggleScheduled = true;
-	                div2.classList.toggle("foo");
-	            };
+	            toggleScheduled = true;
+	            div2.classList.toggle("foo");
+	        };
 
-	            return function schedule(fn) {
+	        return function schedule(fn) {
 	            var o = new MutationObserver(function() {
 	                o.disconnect();
 	                fn();
@@ -3204,6 +3289,7 @@
 	    switch(val) {
 	    case -2: return [];
 	    case -3: return {};
+	    case -6: return new Map();
 	    }
 	}
 
@@ -4382,10 +4468,11 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
-	module.exports = function(Promise, tryConvertToPromise) {
+	module.exports = function(Promise, tryConvertToPromise, NEXT_FILTER) {
 	var util = __webpack_require__(16);
 	var CancellationError = Promise.CancellationError;
 	var errorObj = util.errorObj;
+	var catchFilter = __webpack_require__(27)(NEXT_FILTER);
 
 	function PassThroughHandlerContext(promise, type, handler) {
 	    this.promise = promise;
@@ -4437,7 +4524,9 @@
 	        var ret = this.isFinallyHandler()
 	            ? handler.call(promise._boundValue())
 	            : handler.call(promise._boundValue(), reasonOrValue);
-	        if (ret !== undefined) {
+	        if (ret === NEXT_FILTER) {
+	            return ret;
+	        } else if (ret !== undefined) {
 	            promise._setReturnedNonUndefined();
 	            var maybePromise = tryConvertToPromise(ret, promise);
 	            if (maybePromise instanceof Promise) {
@@ -4486,8 +4575,40 @@
 	                             finallyHandler);
 	};
 
+
 	Promise.prototype.tap = function (handler) {
 	    return this._passThrough(handler, 1, finallyHandler);
+	};
+
+	Promise.prototype.tapCatch = function (handlerOrPredicate) {
+	    var len = arguments.length;
+	    if(len === 1) {
+	        return this._passThrough(handlerOrPredicate,
+	                                 1,
+	                                 undefined,
+	                                 finallyHandler);
+	    } else {
+	         var catchInstances = new Array(len - 1),
+	            j = 0, i;
+	        for (i = 0; i < len - 1; ++i) {
+	            var item = arguments[i];
+	            if (util.isObject(item)) {
+	                catchInstances[j++] = item;
+	            } else {
+	                return Promise.reject(new TypeError(
+	                    "tapCatch statement predicate: "
+	                    + "expecting an object but got " + util.classString(item)
+	                ));
+	            }
+	        }
+	        catchInstances.length = j;
+	        var handler = arguments[i];
+	        return this._passThrough(catchFilter(catchInstances, handler, this),
+	                                 1,
+	                                 undefined,
+	                                 finallyHandler);
+	    }
+
 	};
 
 	return PassThroughHandlerContext;
@@ -6000,7 +6121,7 @@
 	            if (maybePromise === null) {
 	                this._promiseRejected(
 	                    new TypeError(
-	                        "A value %s was yielded that could not be treated as a promise\u000a\u000a    See http://goo.gl/MqrFmX\u000a\u000a".replace("%s", value) +
+	                        "A value %s was yielded that could not be treated as a promise\u000a\u000a    See http://goo.gl/MqrFmX\u000a\u000a".replace("%s", String(value)) +
 	                        "From coroutine:\u000a" +
 	                        this._stack.split("\n").slice(1, -7).join("\n")
 	                    )
@@ -6511,7 +6632,7 @@
 	    }
 	    this.constructor$(entries);
 	    this._isMap = isMap;
-	    this._init$(undefined, -3);
+	    this._init$(undefined, isMap ? -6 : -3);
 	}
 	util.inherits(PropertiesPromiseArray, PromiseArray);
 
@@ -7505,6 +7626,9 @@
 	      size = this.readU16();
 	      zero = this.readU8();
 	      dataType = this.readU8();
+	      if (size === 0) {
+	        size = 8;
+	      }
 	      typedValue.rawType = dataType;
 	      switch (dataType) {
 	        case TypedValue.TYPE_INT_DEC:
@@ -7588,7 +7712,7 @@
 	          stringLength = this.readLength8(encoding);
 	          byteLength = this.readLength8(encoding);
 	          value = this.buffer.toString(encoding, this.cursor, this.cursor += byteLength);
-	          this.readU16();
+	          this.readU8();
 	          return value;
 	        case 'ucs2':
 	          stringLength = this.readLength16(encoding);
