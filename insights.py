@@ -34,6 +34,14 @@ ANXIETY = 5
 API_BASE = 'https://api.appetizer.io/v2'
 TOKEN_PATH = os.path.join(os.path.dirname(__file__), '.access_token')
 DEVICE_LOG_BASE = '/sdcard/io.appetizer/'
+try:
+    subprocess.check_output(['node', '-v']); 
+except:
+    print('Node.js is not installed and some functionality might not work properly')
+
+
+def version(args):
+    print('1.2.2')
 
 
 def get_apk_manifest(apk):
@@ -313,6 +321,9 @@ def main():
     install_parser.add_argument('apk', action='store', help='the path to the processed APK file')
     install_parser.add_argument('-s','--serialno', dest='serialnos', default=[], action='append', help='device serial number, see adb devices output')
     install_parser.set_defaults(func=install)
+
+    version_parser = subparsers.add_parser('version', help='print version and exit')
+    version_parser.set_defaults(func=version)
 
     args = parser.parse_args()
     if 'func' not in args:
