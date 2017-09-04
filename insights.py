@@ -259,6 +259,9 @@ def analyze(args):
             print('waiting...... server is uploading the report')
         elif r_json['state'] == 'server_upload_success':
             print('server has generated and uploaded the report')
+            if 'reportExport' in r_json:
+                print('exported reports available at:')
+                print(r_json['reportExport'])
             break
         else:
             print(r_json)
