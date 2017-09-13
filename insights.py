@@ -113,11 +113,60 @@ def logout(args):
     print('Bye')
 
 
+def is_fortified(apk, *args, **kwargs):
+    with zipfile.ZipFile(apk) as zip_obj:
+        solist = [s.rsplit('/')[-1] for s in zip_obj.namelist() if s.endswith('.so')]
+	packer = None
+	if 'libexecmain.so' in solist and 'libexec.so' in solist:
+		packer = 'aijiami'
+	elif 'libDexHelper.so' in solist and 'libDexHelper-x86.so' in solist:
+		packer = 'bangbang enterprise'
+	elif 'libsecmain.so' in solist and 'libsecexe.so' in solist:
+		packer = 'bangbang'
+	elif 'libtup.so' in solist or 'libexec.so' in solist:
+		packer = 'tencent'
+	elif ('libprotectClass.so' in solist and 'libprotectClass_x86.so' in solist) or ('libjiagu.so' in solist and 'libjiagu_art.so' in solist) or ('libjiagu.so' in solist and 'libjiagu_x86.so' in solist):
+		packer = '360'
+	elif 'libbaiduprotect.so' in solist and 'ibbaiduprotect_x86.so' in solist:
+		packer = 'baidu'
+	elif ('libddog.so' in solist and 'libfdog.so' in solist) or 'libchaosvmp.so' in solist:
+		packer = 'najia'
+	elif 'libnqshieldx86.so' in solist and 'libnqshield.so' in solist:
+		packer = 'netqin'
+	elif 'libmobisec.so' in solist or 'libmobisecx.so' in solist:
+		packer = 'alibaba'
+	elif 'libegis.so' in solist:
+		packer = 'tongfudun'
+	elif 'libAPKProtect.so' in solist:
+		packer = 'apkprotect'
+    return packer
+
+
 def process(args):
     access_token = _load_token()
     if access_token is None:
         print('Please login to AppetizerIO first')
         return 1
+    # validate APK file
+    try:
+        manifest = json.loads(get_apk_manifest(args.apk))
+    except:
+        print('not a valid APK')
+        return 1
+    with zipfile.ZipFile(args.apk) as checkf:
+        try:
+            checkf.getinfo('assets/appetizer.cfg')
+            print('input APK is already instrumented')
+            return 1
+        except:
+            pass
+    if is_fortified(args.apk) is not None:
+        print("the apk is fortified")
+        return 1
+    if 'android.permission.WRITE_EXTERNAL_STORAGE' not in manifest['usesPermissions']:
+        print("the apk does not have READ/WRITE external storage permission")
+        return 1
+
     authorization = 'Bearer ' + access_token
     original_name = os.path.basename(args.apk)
     pkg = get_apk_package(args.apk)
