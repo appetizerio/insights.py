@@ -33,6 +33,7 @@ import json
 ANXIETY = 5
 API_BASE = 'https://api.appetizer.io/v2'
 TOKEN_PATH = os.path.join(os.path.dirname(__file__), '.access_token')
+APKDUMP = os.path.join(os.path.dirname(__file__), 'apkdump.js')
 DEVICE_LOG_BASE = '/sdcard/io.appetizer/'
 try:
     subprocess.check_output(['node', '-v']); 
@@ -45,7 +46,7 @@ def version(args):
 
 
 def get_apk_manifest(apk):
-    return subprocess.check_output(['node', 'apkdump.js', apk]).decode('utf-8')
+    return subprocess.check_output(['node', APKDUMP, apk]).decode('utf-8')
 
 
 def get_apk_package(apk):
