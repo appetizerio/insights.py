@@ -122,11 +122,6 @@ def process(args):
     original_name = os.path.basename(args.apk)
     pkg = get_apk_package(args.apk)
     token = None
-    try:
-        adb(['version'])
-    except:
-        print('adb not available')
-        return 1
     print('0. request Appetizer Insights upload permission')
     r = requests.post(API_BASE + '/insight/process/qiniu', headers={'Authorization': authorization}, verify=False)
     r_json = r.json()
@@ -185,6 +180,11 @@ def process(args):
 
 
 def install(args):
+    try:
+        adb(['version'])
+    except:
+        print('adb not available')
+        return 1
     pkg = get_apk_package(args.apk)
     serialnos = args.serialnos if len(args.serialnos) > 0 else [None]
     print('This command is not useful for MIUI devices; please click on the installation popup dialog and manually grant WRITE_EXTERNAL_STROAGE permission')
@@ -202,6 +202,11 @@ def install(args):
 
 
 def analyze(args):
+    try:
+        adb(['version'])
+    except:
+        print('adb not available')
+        return 1
     access_token = _load_token()
     if access_token is None:
         print('Please login to AppetizerIO first')
