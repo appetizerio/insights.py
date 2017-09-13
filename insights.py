@@ -209,7 +209,7 @@ def analyze(args):
     authorization = 'Bearer ' + access_token
     pkg = get_apk_package(args.apk)
     with open('AndroidManifest.json', 'w') as f:
-         f.write(get_apk_manifest(args.apk))
+         f.write(get_apk_manifest(args.apk).encode('utf-8'))
     log_zip = pkg + '.log.zip'
     serialnos = args.serialnos if len(args.serialnos) > 0 else [None]
     DEVICE_LOG = DEVICE_LOG_BASE + pkg + '.log'
