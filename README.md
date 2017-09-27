@@ -1,4 +1,4 @@
-# insights.py
+# insights.py [![Build Status](https://travis-ci.org/appetizerio/insights.py.svg?branch=master)](https://travis-ci.org/appetizerio/insights.py) 
 Appetizer 质量监控的 Python 客户端
 
 使用流程
