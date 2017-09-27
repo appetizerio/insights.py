@@ -116,29 +116,29 @@ def logout(args):
 def is_fortified(apk, *args, **kwargs):
     with zipfile.ZipFile(apk) as zip_obj:
         solist = [s.rsplit('/')[-1] for s in zip_obj.namelist() if s.endswith('.so')]
-	packer = None
-	if 'libexecmain.so' in solist and 'libexec.so' in solist:
-		packer = 'aijiami'
-	elif 'libDexHelper.so' in solist and 'libDexHelper-x86.so' in solist:
-		packer = 'bangbang enterprise'
-	elif 'libsecmain.so' in solist and 'libsecexe.so' in solist:
-		packer = 'bangbang'
-	elif 'libtup.so' in solist or 'libexec.so' in solist:
-		packer = 'tencent'
-	elif ('libprotectClass.so' in solist and 'libprotectClass_x86.so' in solist) or ('libjiagu.so' in solist and 'libjiagu_art.so' in solist) or ('libjiagu.so' in solist and 'libjiagu_x86.so' in solist):
-		packer = '360'
-	elif 'libbaiduprotect.so' in solist and 'ibbaiduprotect_x86.so' in solist:
-		packer = 'baidu'
-	elif ('libddog.so' in solist and 'libfdog.so' in solist) or 'libchaosvmp.so' in solist:
-		packer = 'najia'
-	elif 'libnqshieldx86.so' in solist and 'libnqshield.so' in solist:
-		packer = 'netqin'
-	elif 'libmobisec.so' in solist or 'libmobisecx.so' in solist:
-		packer = 'alibaba'
-	elif 'libegis.so' in solist:
-		packer = 'tongfudun'
-	elif 'libAPKProtect.so' in solist:
-		packer = 'apkprotect'
+    packer = None
+    if 'libexecmain.so' in solist and 'libexec.so' in solist:
+        packer = 'aijiami'
+    elif 'libDexHelper.so' in solist and 'libDexHelper-x86.so' in solist:
+        packer = 'bangbang enterprise'
+    elif 'libsecmain.so' in solist and 'libsecexe.so' in solist:
+        packer = 'bangbang'
+    elif 'libtup.so' in solist or 'libexec.so' in solist:
+        packer = 'tencent'
+    elif ('libprotectClass.so' in solist and 'libprotectClass_x86.so' in solist) or ('libjiagu.so' in solist and 'libjiagu_art.so' in solist) or ('libjiagu.so' in solist and 'libjiagu_x86.so' in solist):
+        packer = '360'
+    elif 'libbaiduprotect.so' in solist and 'ibbaiduprotect_x86.so' in solist:
+        packer = 'baidu'
+    elif ('libddog.so' in solist and 'libfdog.so' in solist) or 'libchaosvmp.so' in solist:
+        packer = 'najia'
+    elif 'libnqshieldx86.so' in solist and 'libnqshield.so' in solist:
+        packer = 'netqin'
+    elif 'libmobisec.so' in solist or 'libmobisecx.so' in solist:
+        packer = 'alibaba'
+    elif 'libegis.so' in solist:
+        packer = 'tongfudun'
+    elif 'libAPKProtect.so' in solist:
+        packer = 'apkprotect'
     return packer
 
 
