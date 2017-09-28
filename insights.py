@@ -163,7 +163,8 @@ def process(args):
     if is_fortified(args.apk) is not None:
         print("the apk is fortified")
         return 1
-    if 'android.permission.WRITE_EXTERNAL_STORAGE' not in manifest['usesPermissions']:
+    permissions = [p['name'] for p in manifest['usesPermissions']]
+    if 'android.permission.WRITE_EXTERNAL_STORAGE' not in permissions:
         print("the apk does not have READ/WRITE external storage permission")
         return 1
 
