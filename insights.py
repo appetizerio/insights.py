@@ -170,6 +170,10 @@ def process(args):
     if 'android.permission.WRITE_EXTERNAL_STORAGE' not in permissions:
         print("the apk does not have READ/WRITE external storage permission")
         return 1
+    components = manifest['application']['activities'] + manifest['application']['services'] + manifest['application']['receivers']
+    processes = list(set([p['process'] for p in components if 'process' in p]))
+    if len(processes) > 1:
+        print("WARNING: the apk launches multiple processes. multi-process support is not complete and could be problematic with Appetizer")
 
     authorization = 'Bearer ' + access_token
     original_name = os.path.basename(args.apk)
