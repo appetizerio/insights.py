@@ -30,8 +30,11 @@ import qiniu.config
 import gzip
 import json
 
-ANXIETY = 5
-API_BASE = 'https://api.appetizer.io/v2'
+CONFIG = os.path.join(os.path.dirname(__file__), 'config.json')
+with open(CONFIG, 'r') as f:
+    config = json.loads(f.read())
+ANXIETY = config['anxiety']
+API_BASE = config['api_base']
 TOKEN_PATH = os.path.join(os.path.dirname(__file__), '.access_token')
 APKDUMP = os.path.join(os.path.dirname(__file__), 'apkdump.js')
 DEVICE_LOG_BASE = '/sdcard/io.appetizer/'
@@ -360,9 +363,9 @@ def main():
     logout_parser = subparsers.add_parser('logout', help='logout from AppetizerIO')
     logout_parser.set_defaults(func=logout)
 
-    process_parser = subparsers.add_parser('process', help='upload an APK to add the Appetizer Insight quality monitoring module')
+    process_parser = subparsers.add_parser('process', help='upload an APK for instrumentation')
     process_parser.add_argument('apk', action='store', help='the path to the APK file')
-    process_parser.add_argument('processed_apk', action='store', help='the complete path to save the processed APK')
+    process_parser.add_argument('processed_apk', action='store', help='the complete path to save the instrumented APK')
     process_parser.set_defaults(func=process)
 
     analyze_parser = subparsers.add_parser('analyze', help='fetch and analyze device logs and generate diagnosis report')
