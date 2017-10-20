@@ -163,7 +163,8 @@ def process(args):
     if is_fortified(args.apk) is not None:
         print("the apk is fortified")
         return 1
-    if 'android.permission.WRITE_EXTERNAL_STORAGE' not in manifest['usesPermissions']:
+    permissions = [p['name'] for p in manifest['usesPermissions']]
+    if 'android.permission.WRITE_EXTERNAL_STORAGE' not in permissions:
         print("the apk does not have READ/WRITE external storage permission")
         return 1
 
@@ -275,7 +276,7 @@ def analyze(args):
             fname = d if d is not None else "devicelog"
             adb(['pull', DEVICE_LOG, fname + '.log'], d)
             if args.clear:
-                adb(['shell', 'rm', DEVICE_LOG], d)
+                adb(['shell', 'echo>' + DEVICE_LOG], d)
             myzip.write(fname + '.log')
     os.remove('AndroidManifest.json')
 
@@ -342,7 +343,7 @@ def clearlog(args):
     serialnos = args.serialnos if len(args.serialnos) > 0 else [None]
     DEVICE_LOG = DEVICE_LOG_BASE + pkg + '.log'
     for d in serialnos:
-        adb(['shell', 'rm', DEVICE_LOG], d)
+        adb(['shell', 'echo>' + DEVICE_LOG], d)
     print('done')
 
 
