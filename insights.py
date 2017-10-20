@@ -142,6 +142,8 @@ def is_fortified(apk, *args, **kwargs):
         packer = 'tongfudun'
     elif 'libAPKProtect.so' in solist:
         packer = 'apkprotect'
+    elif any('libshell' in s for s in solist):
+        packer = 'tecent_legu'
     return packer
 
 
