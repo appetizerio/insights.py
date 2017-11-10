@@ -37,7 +37,7 @@ ANXIETY = config['anxiety']
 API_BASE = config['api_base']
 TOKEN_PATH = os.path.join(os.path.dirname(__file__), '.access_token')
 APKDUMP = os.path.join(os.path.dirname(__file__), 'apkdump.js')
-DEVICE_LOG_BASE = '/sdcard/io.appetizer/'
+DEVICE_LOG_BASE = config['device_log_location']
 try:
     subprocess.check_output(['node', '-v']); 
 except:
