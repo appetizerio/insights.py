@@ -24,11 +24,23 @@ import time
 import zipfile
 import os
 import codecs
-import requests
-from qiniu import put_file, etag
-import qiniu.config
 import gzip
 import json
+
+try:
+    import requests
+    from qiniu import put_file, etag
+    import qiniu.config
+except ImportError:
+    print('please install dependencies from requirements.txt')
+    sys.exit(1)
+
+try:
+    import zlib
+    COMPRESS = zipfile.ZIP_DEFLATED
+except ImportError:
+    print('python zlib is not available, which is highly suggested')
+    COMPRESS = zipfile.STORED
 
 CONFIG = os.path.join(os.path.dirname(__file__), 'config.json')
 with open(CONFIG, 'r') as f:
@@ -257,7 +269,7 @@ def install(args):
     for d in serialnos:
         adb(['shell', 'pm', 'grant', pkg, 'android.permission.WRITE_EXTERNAL_STORAGE'], d, True)
         adb(['shell', 'pm', 'grant', pkg, 'android.permission.READ_EXTERNAL_STORAGE'], d, True)
-    print('permission granted')
+    print('permission granted with adb, please double check')
 
 
 def analyze(args):
@@ -280,10 +292,13 @@ def analyze(args):
     token = None
     print('0. harvest and compress device logs')
     with zipfile.ZipFile(log_zip, 'w') as myzip:
-        myzip.write('AndroidManifest.json')
+        myzip.write('AndroidManifest.json', compress_type=COMPRESS)
         for d in serialnos:
             fname = d if d is not None else "devicelog"
-            adb(['pull', DEVICE_LOG, fname + '.log'], d)
+            try:
+                adb(['pull', DEVICE_LOG, fname + '.log'], d)
+            except:
+                print('failed to retrieve logs from a device, please double check if the app ha the permission to log to SDCARD')
             if args.clear:
                 adb(['shell', 'echo>' + DEVICE_LOG], d)
             myzip.write(fname + '.log')
@@ -405,5 +420,5 @@ def main():
 if __name__ == '__main__':
     sys.exit(main())
 else:
-    print("this script is inteded as a CLI not a package yet")
+    print("this script is intended as a CLI not a package yet")
 
