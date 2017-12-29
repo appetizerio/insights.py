@@ -16,6 +16,9 @@
 #
 
 import requests
+# kill it for now
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 import argparse
 import sys
 import subprocess
