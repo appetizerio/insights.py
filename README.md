@@ -12,7 +12,7 @@ Appetizer 质量监控的 Python 客户端
 * 应用崩溃（Crash）的原因和崩溃时的状态
 * 所有线程抛出的异常（即使不会造成崩溃）
 * 应用未响应（ANR）的状态
-* HTTP 请求以及回复的详细信息，包含以下库的API（更多库支持正在添加）
+* HTTP 请求以及回复的详细信息，包含以下库的API (更多库支持正在添加)
     - [okhttp >=2.2 或 okhttp3](https://github.com/square/okhttp/wiki/Interceptors#availability)
     - [retrofit >1.8（基于okhttp的）](https://github.com/square/okhttp/wiki/Interceptors#availability)
     - apache http
