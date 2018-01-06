@@ -197,9 +197,9 @@ def process(args):
     pkg = get_apk_package(args.apk)
     token = None
     print('0. request Appetizer Insights upload permission')
-    r = requests.post(API_BASE + '/insight/process/qiniu', headers={'Authorization': authorization}, verify=False)
+    appetizercfg = {"appetizercfg": {"floating_menu": args.floating_menu}}
+    r = requests.post(API_BASE + '/insight/process/qiniu', headers={'Authorization': authorization}, verify=False, json=appetizercfg)
     r_json = r.json()
-    print(r_json)
     if r.status_code != 200:
         print(r_json['msg'])
         return 1
@@ -392,6 +392,7 @@ def main():
     process_parser = subparsers.add_parser('process', help='upload an APK for instrumentation')
     process_parser.add_argument('apk', action='store', help='the path to the APK file')
     process_parser.add_argument('processed_apk', action='store', help='the complete path to save the instrumented APK')
+    process_parser.add_argument('--enable-inapp-menu', action='store_true', help='enable the in-app Appetizer menu', default=False, dest='floating_menu')
     process_parser.set_defaults(func=process)
 
     analyze_parser = subparsers.add_parser('analyze', help='fetch and analyze device logs and generate diagnosis report')
