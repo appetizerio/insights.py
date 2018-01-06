@@ -60,7 +60,7 @@ except:
 
 
 def version(args):
-    print('1.2.2')
+    print('1.2.5')
 
 
 def get_apk_manifest(apk):
