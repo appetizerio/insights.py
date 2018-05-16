@@ -29,6 +29,7 @@ import os
 import codecs
 import gzip
 import json
+import traceback
 
 try:
     import requests
@@ -219,7 +220,10 @@ def process(args):
     print('2. wait for the APK to be processed')
     r_json = None
     while True:
-        r = requests.get(API_BASE + '/insight/process', headers={'Authorization': authorization}, params={'key': key})
+        try:
+            r = requests.get(API_BASE + '/insight/process', headers={'Authorization': authorization}, params={'key': key})
+        except:
+            traceback.print_exc()
         r_json = r.json()
         if r_json['success'] != True:
             print(r_json)
