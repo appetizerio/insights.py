@@ -15,10 +15,6 @@
 # limitations under the License.
 #
 
-import requests
-# kill it for now
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 import argparse
 import sys
 import subprocess
@@ -29,12 +25,12 @@ import os
 import codecs
 import gzip
 import json
-import traceback
 
 try:
     import requests
-    from qiniu import put_file, etag
-    import qiniu.config
+    # kill it for now
+    from requests.packages.urllib3.exceptions import InsecureRequestWarning
+    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 except ImportError:
     print('please install dependencies from requirements.txt')
     sys.exit(1)
@@ -61,7 +57,7 @@ except:
 
 
 def version(args):
-    print('1.2.5')
+    print('1.3.8')
 
 
 def get_apk_manifest(apk):
@@ -97,7 +93,7 @@ def _load_token():
         print(r.json())
         print('stored access token is no longer valid, please login again')
         return None
-    print('valid access token: ' + access_token)
+    print('valid access token')
     return access_token
 
 
@@ -211,19 +207,17 @@ def process(args):
     print('apk: ' + args.apk)
     print('pkg: ' + pkg)
     print('upload......')
-    ret, info = put_file(token, key, args.apk)
+    with open(args.apk, 'rb') as f:
+        ret = requests.post('http://upload.qiniu.com', files={'file': f}, data={'key': key, 'token': token}).json()
     print(ret)
-    if ret is None or 'success' not in ret or ret['success'] != True:
+    if ret is None or 'success' not in ret or not ret['success']:
         print('upload error')
         return 1
 
     print('2. wait for the APK to be processed')
     r_json = None
     while True:
-        try:
-            r = requests.get(API_BASE + '/insight/process', headers={'Authorization': authorization}, params={'key': key})
-        except:
-            traceback.print_exc()
+        r = requests.get(API_BASE + '/insight/process', headers={'Authorization': authorization}, params={'key': key})
         r_json = r.json()
         if r_json['success'] != True:
             print(r_json)
@@ -325,8 +319,9 @@ def analyze(args):
     print('pkg: ' + pkg)
     print('log file: ' + log_zip)
     print('uploading......')
-    ret, info = put_file(token, key, log_zip)
-    if (ret is None or 'success' not in ret or ret['success'] != True):
+    with open(log_zip, 'rb') as f:
+        ret = requests.post('http://upload.qiniu.com', files={'file': f}, data={'key': key, 'token': token}).json()
+    if ret is None or 'success' not in ret or not ret['success']:
         print('upload error')
         return 1
 
