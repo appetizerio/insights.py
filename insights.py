@@ -76,6 +76,48 @@ def adb(cmd, d=None, showCmd=False):
     return subprocess.check_call(fullCmd)
 
 
+def _apkinfo(apk):
+    valid, instrumented, packer, hasPerm, multiproc, pkg = False, False, None, False, False, None
+    try:
+        manifest = json.loads(get_apk_manifest(apk))
+        valid = True
+        pkg = manifest['package']
+    except:
+        return valid, instrumented, packer, hasPerm, multiproc, pkg
+    with zipfile.ZipFile(apk) as checkf:
+        try:
+            checkf.getinfo('assets/appetizer.cfg')
+            instrumented = True
+        except:
+            pass
+    packer = is_fortified(apk)
+    permissions = [p['name'] for p in manifest['usesPermissions']]
+    hasPerm = 'android.permission.WRITE_EXTERNAL_STORAGE' in permissions
+    components = manifest['application']['activities'] + manifest['application']['services'] + manifest['application']['receivers']
+    processes = list(set([p['process'] for p in components if 'process' in p]))
+    multiproc = len(processes) > 1
+    return valid, instrumented, packer, hasPerm, multiproc, pkg
+
+def apkinfo(args):
+    valid, instrumented, packer, hasPerm, multiproc, pkg = _apkinfo(args.apk)
+    if not valid:
+        print('not a valid APK')
+        return 1
+    print('pkg: %s' % (pkg, ))
+    if instrumented:
+        print('input APK is already instrumented')
+        return 1
+    if packer is not None:
+        print("the apk is fortified by %s" % (packer, ))
+        return 1
+    if not hasPerm:
+        print("the apk does not have READ/WRITE external storage permission")
+        return 1
+    if multiproc:
+        print("WARNING: the apk launches multiple processes. multi-process support is not complete and could be problematic with Appetizer")
+    return 0
+
+
 def _load_token():
     access_token = ''
     try:
@@ -165,33 +207,11 @@ def process(args):
         print('Please login to AppetizerIO first')
         return 1
     # validate APK file
-    try:
-        manifest = json.loads(get_apk_manifest(args.apk))
-    except:
-        print('not a valid APK')
-        return 1
-    with zipfile.ZipFile(args.apk) as checkf:
-        try:
-            checkf.getinfo('assets/appetizer.cfg')
-            print('input APK is already instrumented')
-            return 1
-        except:
-            pass
-    if is_fortified(args.apk) is not None:
-        print("the apk is fortified")
-        return 1
-    permissions = [p['name'] for p in manifest['usesPermissions']]
-    if 'android.permission.WRITE_EXTERNAL_STORAGE' not in permissions:
-        print("the apk does not have READ/WRITE external storage permission")
-        return 1
-    components = manifest['application']['activities'] + manifest['application']['services'] + manifest['application']['receivers']
-    processes = list(set([p['process'] for p in components if 'process' in p]))
-    if len(processes) > 1:
-        print("WARNING: the apk launches multiple processes. multi-process support is not complete and could be problematic with Appetizer")
+    if apkinfo(args): return 1
+    valid, instrumented, packer, hasPerm, multiproc, pkg = _apkinfo(args.apk)
 
     authorization = 'Bearer ' + access_token
     original_name = os.path.basename(args.apk)
-    pkg = get_apk_package(args.apk)
     token = None
     print('0. request Appetizer Insights upload permission')
     appetizercfg = {"appetizercfg": {"floating_menu": args.floating_menu}}
@@ -388,6 +408,10 @@ def main():
     logout_parser = subparsers.add_parser('logout', help='logout from AppetizerIO')
     logout_parser.set_defaults(func=logout)
 
+    apkinfo_parser = subparsers.add_parser('apkinfo', help='display the basic information of an APK and check if it is ready for Appetizer')
+    apkinfo_parser.add_argument('apk', action='store', help='the path to the APK file')
+    apkinfo_parser.set_defaults(func=apkinfo)
+
     process_parser = subparsers.add_parser('process', help='upload an APK for instrumentation')
     process_parser.add_argument('apk', action='store', help='the path to the APK file')
     process_parser.add_argument('processed_apk', action='store', help='the complete path to save the instrumented APK')
@@ -424,4 +448,3 @@ if __name__ == '__main__':
     sys.exit(main())
 else:
     print("this script is intended as a CLI not a package yet")
-
