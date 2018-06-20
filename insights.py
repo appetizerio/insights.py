@@ -49,7 +49,7 @@ ANXIETY = config['anxiety']
 API_BASE = config['api_base']
 TOKEN_PATH = os.path.join(os.path.dirname(__file__), '.access_token')
 APKDUMP = os.path.join(os.path.dirname(__file__), 'apkdump.js')
-DEVICE_LOG_BASE = config['device_log_location']
+OLD_DEVICE_LOG_BASE = "/sdcard/io.appetizer/"
 try:
     subprocess.check_output(['node', '-v']); 
 except:
@@ -57,11 +57,22 @@ except:
 
 
 def version(args):
-    print('1.3.8')
+    print('1.3.10')
 
 
 def get_apk_manifest(apk):
     return subprocess.check_output(['node', APKDUMP, apk]).decode('utf-8')
+
+
+def get_device_log_location(pkg, d=None):
+    NEW_DEVICE_LOG_BASE = '/sdcard/Android/data/%s/files/io.appetizer/' % (pkg, )
+    print("checking: " + NEW_DEVICE_LOG_BASE)
+    if 'x_x' in adb(['shell', '[', '-d', NEW_DEVICE_LOG_BASE, ']', '||', 'echo', 'x_x']).decode('utf-8'):
+        log_base = OLD_DEVICE_LOG_BASE
+    else:
+        log_base = NEW_DEVICE_LOG_BASE
+    print('using: ' + log_base)
+    return log_base + pkg + '.log'
 
 
 def get_apk_package(apk):
@@ -73,7 +84,7 @@ def adb(cmd, d=None, showCmd=False):
     dselector = [] if d is None else ['-s', d]
     fullCmd = ['adb'] + dselector + cmd
     if showCmd: print(fullCmd)
-    return subprocess.check_call(fullCmd)
+    return subprocess.check_output(fullCmd)
 
 
 def _apkinfo(apk):
@@ -308,8 +319,8 @@ def analyze(args):
     with open('AndroidManifest.json', 'wb') as f:
          f.write(get_apk_manifest(args.apk).encode('utf-8'))
     log_zip = pkg + '.log.zip'
-    DEVICE_LOG = DEVICE_LOG_BASE + pkg + '.log'
     d = args.serialno
+    DEVICE_LOG = get_device_log_location(pkg, d)
     fname = d if d is not None else "devicelog"
     fname += '.log'
     print('0. harvest and compress device logs')
@@ -380,7 +391,7 @@ def analyze(args):
 
 def clearlog(args):
     pkg = get_apk_package(args.apk)
-    DEVICE_LOG = DEVICE_LOG_BASE + pkg + '.log'
+    DEVICE_LOG = get_device_log_location(pkg, args.serialno)
     adb(['shell', '>' + DEVICE_LOG], args.serialno)
     print('done')
 

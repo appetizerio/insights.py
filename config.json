@@ -1,5 +1,4 @@
 {
   "api_base": "https://api.appetizer.io/v2",
-  "anxiety": 5,
-  "device_log_location": "/sdcard/io.appetizer/"
+  "anxiety": 5
 }
