@@ -65,13 +65,13 @@ def get_apk_manifest(apk):
 
 
 def get_device_log_location(pkg, d=None):
-    NEW_DEVICE_LOG_BASE = '/sdcard/Android/data/%s/files/io.appetizer/' % (pkg, )
-    print("checking: " + NEW_DEVICE_LOG_BASE)
-    if 'x_x' in adb(['shell', '[', '-d', NEW_DEVICE_LOG_BASE, ']', '||', 'echo', 'x_x']).decode('utf-8'):
+    EXTERNAL_STORAGE = adb(['shell', 'echo', '$EXTERNAL_STORAGE'], d).decode('utf-8').strip()
+    NEW_DEVICE_LOG_BASE = '%s/Android/data/%s/files/io.appetizer/' % (EXTERNAL_STORAGE, pkg, )
+    if 'x_x' in adb(['shell', '[', '-d', NEW_DEVICE_LOG_BASE, ']', '||', 'echo', 'x_x'], d).decode('utf-8'):
         log_base = OLD_DEVICE_LOG_BASE
     else:
         log_base = NEW_DEVICE_LOG_BASE
-    print('using: ' + log_base)
+        print('new log location is available: ' + log_base)
     return log_base + pkg + '.log'
 
 
@@ -122,8 +122,7 @@ def apkinfo(args):
         print("the apk is fortified by %s" % (packer, ))
         return 1
     if not hasPerm:
-        print("the apk does not have READ/WRITE external storage permission")
-        return 1
+        print("WARNING: the apk does not have READ/WRITE external storage permission. You will fail to use insights.py to analyze log on Android<=4.4 (Kitkat)")
     if multiproc:
         print("WARNING: the apk launches multiple processes. multi-process support is not complete and could be problematic with Appetizer")
     return 0
@@ -290,7 +289,6 @@ def install(args):
         return 1
     pkg = get_apk_package(args.apk)
     serialnos = args.serialnos if len(args.serialnos) > 0 else [None]
-    print('This command is not useful for MIUI devices; please click on the installation popup dialog and manually grant WRITE_EXTERNAL_STROAGE permission')
     print('1. install processed APK')
     for d in serialnos:
         adb(['uninstall', pkg], d)
