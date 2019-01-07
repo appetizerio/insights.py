@@ -368,8 +368,11 @@ def analyze(args):
             print('waiting...... server is uploading the generated report')
         elif r_json['state'] == 'server_upload_success':
             print('server has generated and uploaded the report')
+            if 'downloadURL' in r_json:
+                print('download report data at:')
+                print(r_json['downloadURL'])
             if 'reportExport' in r_json:
-                print('available exported reports:')
+                print('available exported reports: (deprecated, use Appetizer Desktop instead)')
                 print(r_json['reportExport'])
             break
         else:

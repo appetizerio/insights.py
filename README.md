@@ -4,9 +4,12 @@ Appetizer 质量监控的 Python 客户端
 使用流程
 * 将待测试的 apk 上传到服务端进行插桩
 * 下载插桩后的 apk
-* 安装插桩后的应用，授权，进行测试流程（自动化测试，人工测试都可以），log会存在手机本地
-* 将设备通过USB连接到开发机，并使用本客户端将 log 上传至服务端进行分析
-* 通过[Appetizer Desktop](https://appetizer.io) >= 1.2.0进行可视化查看报告
+* 安装插桩后的应用，进行测试流程（自动化测试，人工测试都可以），log会存在手机本地
+* 上传 log 至服务端进行分析，获取报告
+  * 可以通过APP端浮动功能框进行上传
+  * 可以通过PC端上传USB连接的设备的log
+  * 可以通过本脚本控制上传
+* 通过[Appetizer Desktop](https://appetizer.io) >= 1.3.0进行可视化查看报告
 
 插桩和分析包括
 * 应用崩溃（Crash）的原因和崩溃时的状态
@@ -21,6 +24,8 @@ Appetizer 质量监控的 Python 客户端
 * 主线程卡顿（图片问题，回调问题等）
 * 界面切换耗时
 * CPU 占用率和 heap 占用大小
+* FPS
+* 内存指标PSS等
 
 
 ## 环境要求
@@ -80,18 +85,33 @@ python insights.py analyze my_processed.apk -s serialno1 -s serialno2 --clear
 ```
 * `-s`是可选参数， `serialno1` `serialno2` 之类的是设备的串号，通过 `adb devices` 获得，需要分析多个设备上的log可以用多个`-s`命令指定设备; 不提供任何`-s`命令时，默认认为只有一个设备并对该设备进行分析
 * `--clear`是可选参数，用于从设备下载log后将设备上log清空
-* 分析成功后可以通过[Appetizer Desktop](https://appetizer.io) >= 1.2.0 查看
-* 分析成功后，如果服务器可以导出报告，相应的导出报告下载路径会显示，例如：
+* 分析成功后可以通过[Appetizer Desktop](https://appetizer.io) >= 1.3.0 查看
+* 分析成功后，服务器会返回相应的报告和导出格式的下载路径，例如：
 ``` Shell
 waiting...... server is uploading the report
 server has generated and uploaded the report
-exported reports available at:
+download report data at:
+http://cache.appetizer.io/xxxxx.report.gz
+exported reports available at (deprecated, use Appetizer Desktop instead):
 {
     "csv": "http://cache.appetizer.io/xxxxx.csv.zip",
     "json": "http://cache.appetizer.io/xxxxx.json.zip",
     "html": "http://cache.appetizer.io/xxxxx.html.zip",
 }
 ```
+下载的报告格式为gzip，解压后是一个json，详细报告格式参考：http://doc.appetizer.io/advanced/under-the-hood-analysis.html
+
+### 使用报告可视化工具
+* 首先安装可视化工具所需要的依赖：
+```bash
+pip install -r requirements.report.txt
+```
+* 可视化报告
+```
+python report.py sample-report.json.gz
+```
+可以传入gz文件或者json文件，可视化效果如下（底部有matplotlib标准工具栏可以对区域进行缩放等）：
+![](sample.viz.png)
 
 ### 其他功能
 ``` Shell

@@ -1,0 +1,5 @@
+scipy
+matplotlib
+imageio
+opencv-python
+pandas
