@@ -57,7 +57,7 @@ except:
 
 
 def version(args):
-    print('1.3.10')
+    print('1.4.4')
 
 
 def get_apk_manifest(apk):
@@ -147,6 +147,19 @@ def _load_token():
         return None
     print('valid access token')
     return access_token
+
+
+def apikey(args):
+    access_token = args.apikey
+    authorization = 'Bearer ' + access_token
+    r = requests.get(API_BASE + '/oauth/check_token', headers={'Authorization': authorization}, verify=False)
+    if r.status_code != 200:
+        print(r.json())
+        print('invalid apikey')
+    else:
+        print('valid apikey')
+        with open(TOKEN_PATH, 'w') as tokenfile:
+            tokenfile.write(access_token)
 
 
 def login(args):
@@ -409,6 +422,10 @@ def main():
     
     logout_parser = subparsers.add_parser('logout', help='logout from AppetizerIO')
     logout_parser.set_defaults(func=logout)
+
+    apikey_parser = subparsers.add_parser('apikey', help='set access token to use AppetizerIO for DevOps')
+    apikey_parser.add_argument('apikey', action='store', help='AppetizerIO account apikey, obtained from user profile in the GUI')
+    apikey_parser.set_defaults(func=apikey)
 
     apkinfo_parser = subparsers.add_parser('apkinfo', help='display the basic information of an APK and check if it is ready for Appetizer')
     apkinfo_parser.add_argument('apk', action='store', help='the path to the APK file')
