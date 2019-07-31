@@ -70,6 +70,7 @@ python insights.py process my.apk my_processed.apk
 ```
 
 插桩需要上传、处理、下载，需要一定时间，依据网络情况与APK大小不同大致在1分钟-3分钟内，期间会有输出表示进展情况。
+命令行插桩的App主要面向自动化遍历技术，为避免自动化误点，默认会关闭浮动框，需要打开可在命令行插桩时增加 `--enable-inapp-menu` 选项
 
 ### 安装插桩后的APK并授权
 
