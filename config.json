@@ -1,4 +1,1 @@
-{
-  "api_base": "https://api.appetizer.io/v2",
-  "anxiety": 5
-}
+{"check_analysis": "https://api.appetizer.io/v2/insight/analyze", "anxiety": 5, "request_instrumentation": "https://api.appetizer.io/v2/insight/process/qiniu", "upload_server": "http://upload.qiniu.com", "check_token": "https://api.appetizer.io/v2/oauth/check_token", "request_analysis": "https://api.appetizer.io/v2/insight/analyze/qiniu", "check_instrumentation": "https://api.appetizer.io/v2/insight/process", "get_token": "https://api.appetizer.io/v2/oauth/access_token", "file_server": ""}

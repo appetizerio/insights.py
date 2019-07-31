@@ -1,5 +1,5 @@
 # insights.py [![Build Status](https://travis-ci.org/appetizerio/insights.py.svg?branch=master)](https://travis-ci.org/appetizerio/insights.py) 
-Appetizer 质量监控的 Python 客户端
+AppetizerIO 命令行工具（Python）
 
 使用流程
 * 将待测试的 apk 上传到服务端进行插桩
@@ -9,7 +9,7 @@ Appetizer 质量监控的 Python 客户端
   * 可以通过APP端浮动功能框进行上传
   * 可以通过PC端上传USB连接的设备的log
   * 可以通过本脚本控制上传
-* 通过[Appetizer Desktop](https://appetizer.io) >= 1.3.0进行可视化查看报告
+* 通过[Appetizer Desktop](https://appetizer.io) >= 1.4.3进行可视化查看报告
 
 插桩和分析包括
 * 应用崩溃（Crash）的原因和崩溃时的状态
@@ -53,6 +53,11 @@ python insights.py login username password
 所有客户端操作均需要登录认证，执行登录后登录用token保存在当前 `.access_token` 文件。token默认60天有效，使用任意操作会自动续期。60天后token过期需要重新登录。
 
 账号可在 [Appetizer.io](https://api.appetizer.io/user/register) 注册。
+
+如果非账号密码登录，可使用如下命令直接设置 `apikey`， `apikey`可以从Appetizer桌面客户端的用户界面获取：
+``` Shell
+python insights.py apikey <apikey>
+```
 
 ### 插桩 apk
 ``` Shell
@@ -112,6 +117,21 @@ python report.py sample-report.json.gz
 ```
 可以传入gz文件或者json文件，可视化效果如下（底部有matplotlib标准工具栏可以对区域进行缩放等）：
 ![](sample.viz.png)
+
+### 私有化部署
+使用私有化部署的用户，以如下命令配置：
+```bash
+python insights.py deployment --private <私有化部署URL>
+```
+然后直接设置 `apikey` （绝大多数私有化部署不支持账号密码登录）
+``` Shell
+python insights.py apikey <apikey>
+```
+之后即可正常使用其他功能，如果需要切换回公有云部署，执行：
+```bash
+python insights.py deployment
+```
+注意，每次切换需要重新设置apikey/登录
 
 ### 其他功能
 ``` Shell

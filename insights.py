@@ -42,11 +42,10 @@ except ImportError:
     print('python zlib is not available, which is highly suggested')
     COMPRESS = zipfile.STORED
 
-CONFIG = os.path.join(os.path.dirname(__file__), 'config.json')
-with open(CONFIG, 'r') as f:
-    config = json.loads(f.read())
-ANXIETY = config['anxiety']
-API_BASE = config['api_base']
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
+with open(CONFIG_PATH, 'r') as f:
+    CONFIG = json.loads(f.read())
+ANXIETY = CONFIG['anxiety']
 TOKEN_PATH = os.path.join(os.path.dirname(__file__), '.access_token')
 APKDUMP = os.path.join(os.path.dirname(__file__), 'apkdump.js')
 OLD_DEVICE_LOG_BASE = "/sdcard/io.appetizer/"
@@ -57,7 +56,7 @@ except:
 
 
 def version(args):
-    print('1.4.4')
+    print('1.4.6')
 
 
 def get_apk_manifest(apk):
@@ -140,7 +139,7 @@ def _load_token():
         print('no stored access token, please login')
         return None
     authorization = 'Bearer ' + access_token
-    r = requests.get(API_BASE + '/oauth/check_token', headers={'Authorization': authorization}, verify=False)
+    r = requests.get(CONFIG['check_token'], headers={'Authorization': authorization}, verify=False)
     if r.status_code != 200:
         print(r.json())
         print('stored access token is no longer valid, please login again')
@@ -152,7 +151,7 @@ def _load_token():
 def apikey(args):
     access_token = args.apikey
     authorization = 'Bearer ' + access_token
-    r = requests.get(API_BASE + '/oauth/check_token', headers={'Authorization': authorization}, verify=False)
+    r = requests.get(CONFIG['check_token'], headers={'Authorization': authorization}, verify=False)
     if r.status_code != 200:
         print(r.json())
         print('invalid apikey')
@@ -162,8 +161,42 @@ def apikey(args):
             tokenfile.write(access_token)
 
 
+def deployment(args):
+    if args.private is None:
+        API_BASE = 'https://api.appetizer.io/v2'
+        CONFIG = {
+            "anxiety": ANXIETY,
+            "check_token": API_BASE + '/oauth/check_token',
+            "get_token": API_BASE + '/oauth/access_token',
+            "upload_server": 'http://upload.qiniu.com',
+            "file_server": "",
+            "request_instrumentation": API_BASE + '/insight/process/qiniu',
+            "check_instrumentation": API_BASE + '/insight/process',
+            "request_analysis": API_BASE + '/insight/analyze/qiniu',
+            "check_analysis": API_BASE + '/insight/analyze',
+        }
+    else:
+        CONFIG = {
+            "anxiety": ANXIETY,
+            "check_token": args.private + '/pd/login_check',
+            "get_token": None,
+            "upload_server": args.private,
+            "file_server": args.private,
+            "request_instrumentation": args.private + '/v2/insight/process/local',
+            "check_instrumentation": args.private + '/v2/insight/process',
+            "request_analysis": args.private + '/v2/insight/analyze/local',
+            "check_analysis": args.private + '/v2/insight/analyze',
+        }
+    with open(CONFIG_PATH, 'w') as f:
+        f.write(json.dumps(CONFIG))
+    print('Using %s deployment' % ('public' if args.private is None else 'private'))
+
+
 def login(args):
-    r = requests.post(API_BASE + '/oauth/access_token',
+    if CONFIG['get_token'] is None:
+        print('Login is not available for this deployment, please set apikey directly')
+        return
+    r = requests.post(CONFIG['get_token'],
         data={
             'grant_type': 'password',
             'username': args.username,
@@ -238,7 +271,7 @@ def process(args):
     token = None
     print('0. request Appetizer Insights upload permission')
     appetizercfg = {"appetizercfg": {"floating_menu": args.floating_menu}}
-    r = requests.post(API_BASE + '/insight/process/qiniu', headers={'Authorization': authorization}, verify=False, json=appetizercfg)
+    r = requests.post(CONFIG['request_instrumentation'], headers={'Authorization': authorization}, verify=False, json=appetizercfg)
     r_json = r.json()
     if r.status_code != 200:
         print(r_json['msg'])
@@ -251,7 +284,8 @@ def process(args):
     print('pkg: ' + pkg)
     print('upload......')
     with open(args.apk, 'rb') as f:
-        ret = requests.post('http://upload.qiniu.com', files={'file': f}, data={'key': key, 'token': token}).json()
+        suffix = r_json['uploadUrl'] if 'uploadUrl' in r_json else ''
+        ret = requests.post(CONFIG['upload_server'] + suffix, files={'file': f}, data={'key': key, 'token': token}).json()
     print(ret)
     if ret is None or 'success' not in ret or not ret['success']:
         print('upload error')
@@ -260,7 +294,7 @@ def process(args):
     print('2. wait for the APK to be processed')
     r_json = None
     while True:
-        r = requests.get(API_BASE + '/insight/process', headers={'Authorization': authorization}, params={'key': key})
+        r = requests.get(CONFIG['check_instrumentation'], headers={'Authorization': authorization}, params={'key': key})
         r_json = r.json()
         if r_json['success'] != True:
             print(r_json)
@@ -284,7 +318,10 @@ def process(args):
     print(downloadURL)
 
     print('3. download processed APK')
-    r = requests.get(downloadURL)
+    if (downloadURL.startswith('http')):
+        r = requests.get(downloadURL)
+    else:
+        r = requests.get(CONFIG['file_server'] + downloadURL)
     if r.status_code != 200:
         print('download failed')
         return 1
@@ -347,7 +384,7 @@ def analyze(args):
     os.remove(fname)
 
     print('1. request analysis from the server')
-    r = requests.post(API_BASE + '/insight/analyze/qiniu', headers={'Authorization': authorization}, data={'pkgName': pkg}, verify=False)
+    r = requests.post(CONFIG['request_analysis'], headers={'Authorization': authorization}, data={'pkgName': pkg}, verify=False)
     if r.status_code != 200:
         print(r)
         return 1
@@ -358,7 +395,8 @@ def analyze(args):
     print('2. upload log file %s, with pkg: %s' % (log_zip, pkg))
     print('uploading......')
     with open(log_zip, 'rb') as f:
-        ret = requests.post('http://upload.qiniu.com', files={'file': f}, data={'key': key, 'token': token}).json()
+        suffix = r_json['uploadUrl'] if 'uploadUrl' in r_json else ''
+        ret = requests.post(CONFIG['upload_server'] + suffix, files={'file': f}, data={'key': key, 'token': token}).json()
     if ret is None or 'success' not in ret or not ret['success']:
         print('upload error')
         return 1
@@ -366,7 +404,7 @@ def analyze(args):
     print('3. server analyzing')
     r_json = None
     while True:
-        r = requests.get(API_BASE + '/insight/analyze', headers={'Authorization': authorization}, params={'key': key})
+        r = requests.get(CONFIG['check_analysis'], headers={'Authorization': authorization}, params={'key': key})
         r_json = r.json()
         if r_json['success'] != True:
             print(r_json)
@@ -383,10 +421,12 @@ def analyze(args):
             print('server has generated and uploaded the report')
             if 'downloadURL' in r_json:
                 print('download report data at:')
-                print(r_json['downloadURL'])
-            if 'reportExport' in r_json:
-                print('available exported reports: (deprecated, use Appetizer Desktop instead)')
-                print(r_json['reportExport'])
+                downloadURL = r_json['downloadURL']
+                print('3. download processed APK')
+                if (downloadURL.startswith('http')):
+                    print(downloadURL)
+                else:
+                    print(CONFIG['file_server'] + downloadURL)
             break
         else:
             print(r_json)
@@ -426,6 +466,10 @@ def main():
     apikey_parser = subparsers.add_parser('apikey', help='set access token to use AppetizerIO for DevOps')
     apikey_parser.add_argument('apikey', action='store', help='AppetizerIO account apikey, obtained from user profile in the GUI')
     apikey_parser.set_defaults(func=apikey)
+
+    deployment_parser = subparsers.add_parser('deployment', help='set public/private deployment for AppetizerIO')
+    deployment_parser.add_argument('--private', action='store', default=None, help='AppetizerIO private deployment URL')
+    deployment_parser.set_defaults(func=deployment)
 
     apkinfo_parser = subparsers.add_parser('apkinfo', help='display the basic information of an APK and check if it is ready for Appetizer')
     apkinfo_parser.add_argument('apk', action='store', help='the path to the APK file')
