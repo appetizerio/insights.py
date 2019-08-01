@@ -176,6 +176,12 @@ def deployment(args):
             "check_analysis": API_BASE + '/insight/analyze',
         }
     else:
+        try:
+            if 'Appetizer' not in requests.get(args.private).text:
+                raise Exception()
+        except:
+            print("Invalid AppetizerIO private deployment URL")
+            return
         CONFIG = {
             "anxiety": ANXIETY,
             "check_token": args.private + '/pd/login_check',
@@ -188,8 +194,9 @@ def deployment(args):
             "check_analysis": args.private + '/v2/insight/analyze',
         }
     with open(CONFIG_PATH, 'w') as f:
-        f.write(json.dumps(CONFIG))
+        f.write(json.dumps(CONFIG, sort_keys=True))
     print('Using %s deployment' % ('public' if args.private is None else 'private'))
+    print('Please continue to login or set apikey')
 
 
 def login(args):
